@@ -1,0 +1,1016 @@
+// js/exam.js
+// Student exam-taking experience: fullscreen + tab-switch monitoring,
+// countdown timer with auto-submit, MCQ + Python coding questions
+// (CodeMirror editor, separate Run/Submit actions, per-question
+// submission history), and final MCQ + coding score aggregation.
+
+import { requireRole, wireLogoutButtons } from "./auth.js";
+import {
+  getExamById,
+  getQuestionsForExam,
+  getSubmission,
+  startSubmission,
+  saveAnswers,
+  saveFlags,
+  incrementViolation,
+  finalizeSubmission,
+  createCodeSubmission,
+  listCodeSubmissions,
+  listCodeSubmissionsForExam,
+  listSchedulesForExam
+} from "./student.js";
+import { ensurePyodide, runAllTestCases } from "./python-runner.js";
+import {
+  computeCodingMarks,
+  isPass,
+  PASS_MARK,
+  computeExamAccessStatus,
+  describeExamWindow,
+  findWindowContaining,
+  filterSchedulesForSection
+} from "./grading.js";
+
+wireLogoutButtons();
+
+const params = new URLSearchParams(window.location.search);
+const examId = params.get("examId");
+
+let currentUser = null;
+let studentProfile = null;
+let exam = null;
+let schedules = [];
+let questions = [];
+let answers = {}; // { [questionId]: number (mcq) | { code } (coding, code text only - marks live in codeSubmissions) }
+let flaggedQuestionIds = new Set();
+let currentIndex = 0;
+let violationCount = 0;
+let maxViolations = 3;
+let remainingSeconds = 0;
+let timerInterval = null;
+let examEndTime = null;
+let examStartInProgress = false;
+let examLocked = false;
+let saveTimeout = null;
+let cmEditor = null; // current CodeMirror instance, one at a time
+let existingSubmission = null;
+let saveInFlight = false;
+let savePending = false;
+let lastSavedAnswersJson = "";
+const submissionHistoryCache = new Map();
+const codingBestMarks = new Map();
+const DRAFT_KEY = `examDraft:${examId || "unknown"}`;
+
+if (!examId) {
+  window.location.href = "student-dashboard.html";
+}
+
+let examLoadInProgress = false;
+
+requireRole("student", async (user, profile) => {
+  // Auth state callbacks can fire more than once. Never initialize the
+  // exam UI/listeners more than once for the same page.
+  if (examLoadInProgress || exam) return;
+  examLoadInProgress = true;
+
+  currentUser = user;
+  studentProfile = profile;
+
+  try {
+    await loadExam();
+  } catch (err) {
+    console.error("Failed to load exam:", err);
+    showStartError("Could not load the exam. Please refresh and try again.");
+    examLoadInProgress = false;
+  }
+});
+
+/* ============================================================
+   LOAD + START SCREEN
+   ============================================================ */
+async function loadExam() {
+  exam = await getExamById(examId);
+
+  if (!exam || !exam.active) {
+    showStartError("This exam is not available.");
+    return;
+  }
+
+  schedules = await listSchedulesForExam(examId);
+  const existing = await getSubmission(examId, currentUser.uid);
+  existingSubmission = existing;
+  const accessStatus = computeExamAccessStatus(exam, existing, schedules, studentProfile.section);
+
+  if (accessStatus === "not-assigned") {
+    showStartError("This exam is not scheduled for your section.");
+    return;
+  }
+
+  // From here on, only the schedules relevant to this student's section
+  // matter - other sections' slots shouldn't factor into the timer or
+  // the displayed window.
+  schedules = filterSchedulesForSection(schedules, studentProfile.section);
+
+  if (accessStatus === "completed") {
+    alert("You have already submitted this exam.");
+    window.location.href = "student-dashboard.html";
+    return;
+  }
+
+  if (accessStatus === "upcoming") {
+    showStartError(`This exam hasn't started yet. It opens at ${describeExamWindow(exam, schedules)}.`);
+    return;
+  }
+
+  if (accessStatus === "absent") {
+    if (existing && existing.status === "in-progress") {
+      // They started but never finished, and the deadline has now passed
+      // while they were away - finalize with whatever they had, marked absent.
+      questions = await getQuestionsForExam(examId);
+      questions = applyStudentQuestionPattern(questions, currentUser.uid, examId);
+      answers = existing.answers || {};
+      const { score, mcqScore, codingScore, totalMarks } = await gradeSubmission();
+      const percentage = totalMarks ? Math.round((score / totalMarks) * 10000) / 100 : 0;
+      await finalizeSubmission(examId, currentUser.uid, {
+        answers,
+        score,
+        mcqScore,
+        codingScore,
+        totalMarks,
+        percentage,
+        status: "absent"
+      }).catch((e) => console.error("Failed to finalize stale submission:", e));
+      alert("The exam window has closed. You did not complete this exam in time and have been marked absent.");
+    } else {
+      alert("The exam window has closed. You did not attempt this exam in time and have been marked absent.");
+    }
+    window.location.href = "student-dashboard.html";
+    return;
+  }
+
+  questions = await getQuestionsForExam(examId);
+  // Stable per-student question pattern: different students see different
+  // orders, while refresh/resume keeps the same order for this exam attempt.
+  questions = applyStudentQuestionPattern(questions, currentUser.uid, examId);
+  maxViolations = exam.maxViolations || 3;
+
+  document.getElementById("startExamTitle").textContent = exam.title;
+  document.getElementById("startExamDesc").textContent = exam.description || "";
+  document.getElementById("startDuration").textContent = exam.duration;
+  document.getElementById("startMarks").textContent = exam.totalMarks;
+  document.getElementById("startMaxViolations").textContent = maxViolations;
+
+  if (schedules.length || (exam.startTime && exam.endTime)) {
+    const windowNote = document.createElement("li");
+    windowNote.innerHTML = `<i class="bi bi-calendar-event me-1"></i> Window: ${describeExamWindow(exam, schedules)}`;
+    document.querySelector("#startScreen ul.list-unstyled").appendChild(windowNote);
+  }
+
+  // Use the DOM property rather than addEventListener so repeated auth/load
+  // callbacks can never stack multiple start handlers.
+  document.getElementById("enterFullscreenBtn").onclick = handleStart;
+
+  // Kick off Pyodide loading in the background for coding exams so it's
+  // likely ready by the time the student opens their first question.
+  if (questions.some((q) => q.type === "coding")) {
+    ensurePyodide().catch((e) => console.warn("Pyodide preload failed:", e));
+  }
+}
+
+function showStartError(message) {
+  const el = document.getElementById("startError");
+  el.textContent = message;
+  el.classList.remove("d-none");
+  document.getElementById("enterFullscreenBtn").disabled = true;
+}
+
+async function handleStart() {
+  // Lock immediately, BEFORE the first await. This prevents double-clicks and
+  // duplicate listeners from starting the same exam twice.
+  if (examStartInProgress || examLocked) return;
+  examStartInProgress = true;
+
+  const startButton = document.getElementById("enterFullscreenBtn");
+  if (startButton) {
+    startButton.disabled = true;
+    startButton.setAttribute("aria-disabled", "true");
+  }
+
+  try {
+    await document.documentElement.requestFullscreen();
+  } catch (err) {
+    examStartInProgress = false;
+    if (startButton) {
+      startButton.disabled = false;
+      startButton.removeAttribute("aria-disabled");
+    }
+    showStartError("Fullscreen was blocked by your browser. Please allow fullscreen and try again.");
+    return;
+  }
+
+  let submission = existingSubmission;
+  if (!submission) {
+    const startedAt = new Date().toISOString();
+    await startSubmission(examId, studentProfile, maxViolations);
+    // Avoid a second Firestore read immediately after creating the submission.
+    // We already know the exact fields needed to initialize this browser session.
+    submission = {
+      examId,
+      studentId: currentUser.uid,
+      rollNumber: studentProfile.rollNumber,
+      section: studentProfile.section,
+      answers: {},
+      score: null,
+      percentage: null,
+      violations: 0,
+      maxViolations,
+      status: "in-progress",
+      startedAt,
+      submittedAt: null
+    };
+    existingSubmission = submission;
+  }
+
+  answers = submission.answers || {};
+  flaggedQuestionIds = new Set(submission.flaggedQuestionIds || []);
+  violationCount = submission.violations || 0;
+
+  // Restore a very recent browser-local draft first. This reduces data loss if
+  // a tab is closed during the debounce window, without creating extra reads.
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null");
+    if (draft && draft.answers && draft.updatedAt && Date.now() - draft.updatedAt < 30 * 60 * 1000) {
+      answers = { ...answers, ...draft.answers };
+    }
+  } catch (_) { /* ignore malformed local draft */ }
+  lastSavedAnswersJson = JSON.stringify(answers);
+
+  // The deadline is an absolute timestamp. The timer never "loses" or gains
+  // time because setInterval was delayed, throttled, or duplicated.
+  const startedAtMs = new Date(submission.startedAt).getTime();
+  let endTimeMs = startedAtMs + exam.duration * 60 * 1000;
+
+  const sessionWindow = findWindowContaining(exam, schedules, new Date(submission.startedAt));
+  if (sessionWindow) {
+    endTimeMs = Math.min(endTimeMs, sessionWindow.end.getTime());
+  }
+
+  examEndTime = endTimeMs;
+  remainingSeconds = Math.max(Math.ceil((examEndTime - Date.now()) / 1000), 0);
+
+  document.getElementById("startScreen").classList.add("d-none");
+  document.getElementById("examUi").classList.remove("d-none");
+
+  document.getElementById("topExamName").textContent = exam.title;
+  document.getElementById("topStudentInfo").textContent =
+    `${studentProfile.name} \u00b7 Roll ${studentProfile.rollNumber} \u00b7 Section ${studentProfile.section}`;
+  document.getElementById("violationCount").textContent = violationCount;
+
+  renderQuestionNav();
+  renderCurrentQuestion();
+  startTimer();
+  attachSecurityListeners();
+
+  examStartInProgress = false;
+
+  if (remainingSeconds <= 0) {
+    handleSubmit("auto-submitted");
+  }
+}
+
+
+/**
+ * Create a repeatable question order for each student and exam.
+ * Answers are stored by question ID, so reordering the display does not
+ * change answer evaluation, coding submissions, marks, or question identity.
+ * The same student receives the same order after refresh or resume.
+ */
+function seededRandom(seedText) {
+  let seed = 2166136261;
+  for (let i = 0; i < seedText.length; i++) {
+    seed ^= seedText.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  return function random() {
+    seed |= 0;
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function deterministicShuffle(items, seedText) {
+  const random = seededRandom(seedText);
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
+ * Create a repeatable question order for each student and exam.
+ * The same student receives the same order after refresh or resume.
+ */
+function applyStudentQuestionPattern(questionList, studentId, currentExamId) {
+  // Only randomize MCQ-only exams. Mixed/coding exams retain configured order.
+  if (!questionList.length || !questionList.every((q) => q.type === "mcq")) {
+    return questionList;
+  }
+  return deterministicShuffle(questionList, `questions:${currentExamId}:${studentId}`);
+}
+
+/**
+ * Return original option indexes in a repeatable shuffled display order.
+ * Answers continue to be stored as ORIGINAL option indexes, so
+ * correctOptionIndex and saved answers remain compatible with Firestore.
+ */
+function getShuffledOptionIndexes(question, studentId, currentExamId) {
+  const optionIndexes = question.options.map((_, index) => index);
+  return deterministicShuffle(
+    optionIndexes,
+    `options:${currentExamId}:${studentId}:${question.id}`
+  );
+}
+
+function startTimer() {
+  // Never allow two intervals to control the same exam countdown.
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  if (!examEndTime) return;
+
+  updateTimer();
+
+  // A short interval keeps the display responsive, but the absolute end time
+  // is the source of truth, so delayed/throttled ticks cannot speed up or
+  // extend the exam.
+  timerInterval = setInterval(updateTimer, 500);
+}
+
+function updateTimer() {
+  if (examLocked || !examEndTime) return;
+
+  remainingSeconds = Math.max(
+    Math.ceil((examEndTime - Date.now()) / 1000),
+    0
+  );
+
+  updateTimerDisplay();
+
+  if (remainingSeconds <= 0) {
+    if (timerInterval !== null) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    handleSubmit("auto-submitted");
+  }
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(Math.max(remainingSeconds, 0) / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = Math.max(remainingSeconds, 0) % 60;
+  const el = document.getElementById("timerDisplay");
+  el.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+  el.classList.toggle("timer-warning", remainingSeconds <= 60);
+}
+
+/* ============================================================
+   SECURITY: fullscreen exit + tab switch + copy/paste block
+   ============================================================ */
+function attachSecurityListeners() {
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  document.addEventListener("contextmenu", blockEvent);
+  document.addEventListener("copy", blockEvent);
+  document.addEventListener("cut", blockEvent);
+  document.addEventListener("paste", blockEvent);
+  window.addEventListener("beforeunload", onBeforeUnload);
+}
+
+function detachSecurityListeners() {
+  document.removeEventListener("fullscreenchange", onFullscreenChange);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+  document.removeEventListener("contextmenu", blockEvent);
+  document.removeEventListener("copy", blockEvent);
+  document.removeEventListener("cut", blockEvent);
+  document.removeEventListener("paste", blockEvent);
+  window.removeEventListener("beforeunload", onBeforeUnload);
+}
+
+function blockEvent(e) {
+  if (examLocked) return;
+  // Code editor typing must still work - only block copy/cut/paste/context-menu,
+  // which this listener is scoped to already (see attachSecurityListeners).
+  e.preventDefault();
+}
+
+function onBeforeUnload(e) {
+  if (examLocked) return;
+  e.preventDefault();
+  e.returnValue = "";
+}
+
+function onFullscreenChange() {
+  if (examLocked) return;
+  if (!document.fullscreenElement) {
+    registerViolation("You exited fullscreen. This has been recorded.");
+  }
+}
+
+function onVisibilityChange() {
+  if (examLocked) return;
+
+  // Catch the display up immediately after a background tab/sleep. The
+  // absolute end time remains authoritative.
+  updateTimer();
+
+  if (document.hidden) {
+    // Fire a save immediately when the page is backgrounded so the 5-second
+    // debounce cannot leave the latest answer only in browser memory.
+    flushAnswerSave();
+    registerViolation("You switched tabs or minimized the window. This has been recorded.");
+  }
+}
+
+async function registerViolation(message) {
+  violationCount += 1;
+  document.getElementById("violationCount").textContent = violationCount;
+  incrementViolation(examId, currentUser.uid, violationCount).catch(() => {});
+
+  if (violationCount >= maxViolations) {
+    handleSubmit("auto-submitted", "Maximum violations reached. Your exam was auto-submitted.");
+    return;
+  }
+
+  document.getElementById("violationMessage").textContent = message;
+  document.getElementById("violationModalCount").textContent = violationCount;
+  document.getElementById("violationModalMax").textContent = maxViolations;
+  const modal = new bootstrap.Modal(document.getElementById("violationModal"));
+  modal.show();
+
+  document.getElementById("violationAckBtn").onclick = async () => {
+    modal.hide();
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch (e) {
+        /* user may need to click again; fullscreenchange will re-fire if they leave again */
+      }
+    }
+  };
+}
+
+/* ============================================================
+   QUESTION NAVIGATION + RENDERING
+   ============================================================ */
+function renderQuestionNav() {
+  const nav = document.getElementById("questionNav");
+  nav.innerHTML = questions
+    .map((q, i) => {
+      const answered = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== "";
+      const flagged = flaggedQuestionIds.has(q.id);
+      const classes = ["btn", "btn-sm", "question-nav-btn", answered ? "answered" : "btn-outline-secondary"];
+      if (i === currentIndex) classes.push("current");
+      if (flagged) classes.push("flagged");
+      const flagIcon = flagged ? '<i class="bi bi-flag-fill question-nav-flag"></i>' : "";
+      return `<button type="button" class="${classes.join(" ")}" data-index="${i}">${flagIcon}${i + 1}</button>`;
+    })
+    .join("");
+
+  nav.querySelectorAll("[data-index]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentIndex = Number(btn.dataset.index);
+      renderCurrentQuestion();
+      renderQuestionNav();
+    });
+  });
+}
+
+function renderCurrentQuestion() {
+  const q = questions[currentIndex];
+  const card = document.getElementById("questionCard");
+  cmEditor = null; // old instance's DOM is about to be thrown away
+  if (!q) {
+    card.innerHTML = `<p class="text-muted">No questions in this exam yet.</p>`;
+    return;
+  }
+  q.type === "mcq" ? renderMcqQuestion(card, q) : renderCodingQuestion(card, q);
+}
+
+function renderMcqQuestion(card, q) {
+  const selected = answers[q.id];
+  card.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="badge bg-secondary">Question ${currentIndex + 1} of ${questions.length}</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-brand">${q.marks} marks</span>
+        ${flagButtonHtml(q.id)}
+      </div>
+    </div>
+    <h5 class="mb-4">${q.questionText}</h5>
+    <div class="d-flex flex-column gap-2" id="mcqOptionsList"></div>
+  `;
+
+  wireFlagButton(card, q);
+
+  const list = document.getElementById("mcqOptionsList");
+  const optionIndexes = getShuffledOptionIndexes(q, currentUser.uid, examId);
+  optionIndexes.forEach((originalIndex, displayedIndex) => {
+    const opt = q.options[originalIndex];
+    const label = String.fromCharCode(65 + displayedIndex);
+    const div = document.createElement("div");
+    div.className = `mcq-option ${selected === originalIndex ? "selected" : ""}`;
+    div.innerHTML = `<input type="radio" name="mcqAnswer" ${selected === originalIndex ? "checked" : ""} /> <span><strong>${label})</strong> ${opt}</span>`;
+    div.addEventListener("click", () => {
+      // Store the original option index, not the shuffled display position.
+      answers[q.id] = originalIndex;
+      scheduleAutosave();
+      renderMcqQuestion(card, q);
+      renderQuestionNav();
+    });
+    list.appendChild(div);
+  });
+}
+
+function renderCodingQuestion(card, q) {
+  const saved = answers[q.id] || {};
+  const code = saved.code !== undefined ? saved.code : q.starterCode || "";
+
+  const samplesHtml = (q.examples || [])
+    .map(
+      (ex, i) => `
+      <section class="sample-case mb-3">
+        <div class="sample-case-title">Sample ${i + 1}</div>
+        <div class="sample-io-block">
+          <div class="sample-io-label">Input</div>
+          <pre class="sample-io-value">${escapeHtml(ex.input || "")}</pre>
+        </div>
+        <div class="sample-io-block">
+          <div class="sample-io-label">Expected Output</div>
+          <pre class="sample-io-value">${escapeHtml(ex.output || "")}</pre>
+        </div>
+      </section>`
+    )
+    .join("");
+
+  card.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <span class="badge bg-secondary">Question ${currentIndex + 1} of ${questions.length}</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge ${difficultyBadgeClass(q.difficulty)}">${(q.difficulty || "medium").toUpperCase()}</span>
+        <span class="badge bg-brand">${q.marks} marks</span>
+        ${flagButtonHtml(q.id)}
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-5">
+        <h5 class="mb-2">${q.title}</h5>
+        <p class="preserve-lines">${escapeHtml(q.description || "")}</p>
+        ${q.inputDescription ? `<p class="small preserve-lines"><strong>Input:</strong> ${escapeHtml(q.inputDescription)}</p>` : ""}
+        ${q.outputDescription ? `<p class="small preserve-lines"><strong>Output:</strong> ${escapeHtml(q.outputDescription)}</p>` : ""}
+        ${q.constraints ? `<p class="small text-muted preserve-lines"><strong>Constraints:</strong> ${escapeHtml(q.constraints)}</p>` : ""}
+        ${samplesHtml}
+        <div id="submissionHistory" class="mt-3"></div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <select class="form-select form-select-sm w-auto" disabled title="More languages coming soon">
+            <option>Python</option>
+          </select>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="clearCodeBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
+        </div>
+
+        <textarea id="codeEditorTextarea">${escapeHtml(code)}</textarea>
+
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <button class="btn btn-outline-secondary btn-sm" id="runCodeBtn"><i class="bi bi-play-fill me-1"></i>Run Code</button>
+          <button class="btn btn-brand btn-sm" id="submitCodeBtn"><i class="bi bi-cloud-arrow-up me-1"></i>Submit Code</button>
+          <span class="python-status" id="pythonStatus"></span>
+        </div>
+
+        <div id="testResults" class="d-flex flex-column gap-2 mt-3"></div>
+      </div>
+    </div>
+  `;
+
+  cmEditor = CodeMirror.fromTextArea(document.getElementById("codeEditorTextarea"), {
+    mode: "python",
+    lineNumbers: true,
+    indentUnit: 4,
+    tabSize: 4,
+    indentWithTabs: false,
+    matchBrackets: true,
+    theme: "dracula",
+    viewportMargin: Infinity
+  });
+  cmEditor.setSize("100%", "320px");
+
+  cmEditor.on("change", () => {
+    answers[q.id] = { ...(answers[q.id] || {}), code: cmEditor.getValue() };
+    scheduleAutosave();
+    renderQuestionNav();
+  });
+
+  document.getElementById("clearCodeBtn").addEventListener("click", () => {
+    if (!confirm("Reset your code back to the starter template? This cannot be undone.")) return;
+    cmEditor.setValue(q.starterCode || "");
+  });
+
+  document.getElementById("runCodeBtn").addEventListener("click", () => runVisibleTests(q, cmEditor.getValue()));
+  document.getElementById("submitCodeBtn").addEventListener("click", () => submitCode(q, cmEditor.getValue()));
+
+  wireFlagButton(card, q);
+  renderSubmissionHistory(q.id);
+}
+
+function difficultyBadgeClass(difficulty) {
+  if (difficulty === "easy") return "bg-success";
+  if (difficulty === "hard") return "bg-danger";
+  return "bg-warning text-dark";
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/* ---------- Flag for Review ---------- */
+function flagButtonHtml(questionId) {
+  const flagged = flaggedQuestionIds.has(questionId);
+  return `
+    <button type="button" class="btn btn-sm ${flagged ? "btn-warning" : "btn-outline-warning"}" id="flagQuestionBtn"
+      title="${flagged ? "Unflag this question" : "Flag this question for review"}">
+      <i class="bi ${flagged ? "bi-flag-fill" : "bi-flag"} me-1"></i>${flagged ? "Flagged" : "Flag for Review"}
+    </button>`;
+}
+
+function wireFlagButton(card, q) {
+  const btn = card.querySelector("#flagQuestionBtn");
+  if (!btn) return;
+  btn.addEventListener("click", () => toggleFlag(q.id));
+}
+
+function toggleFlag(questionId) {
+  if (flaggedQuestionIds.has(questionId)) {
+    flaggedQuestionIds.delete(questionId);
+  } else {
+    flaggedQuestionIds.add(questionId);
+  }
+  saveFlags(examId, currentUser.uid, [...flaggedQuestionIds]).catch(() => {});
+  renderCurrentQuestion();
+  renderQuestionNav();
+}
+
+/* ============================================================
+   AUTOSAVE (code text only - marks/scoring live in codeSubmissions)
+   ============================================================ */
+function persistLocalDraft() {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      answers
+    }));
+  } catch (_) { /* storage may be unavailable/full */ }
+}
+
+async function flushAnswerSave() {
+  persistLocalDraft();
+  const json = JSON.stringify(answers);
+  if (json === lastSavedAnswersJson && !savePending) return;
+
+  if (saveInFlight) {
+    savePending = true;
+    return;
+  }
+
+  saveInFlight = true;
+  savePending = false;
+  try {
+    await saveAnswers(examId, currentUser.uid, answers);
+    lastSavedAnswersJson = json;
+  } catch (err) {
+    console.warn("Exam answer save failed; local draft retained.", err);
+  } finally {
+    saveInFlight = false;
+    if (savePending && !examLocked) {
+      savePending = false;
+      flushAnswerSave();
+    }
+  }
+}
+
+function scheduleAutosave() {
+  persistLocalDraft();
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    flushAnswerSave();
+  }, 5000);
+}
+
+/* ============================================================
+   RUN CODE (public/sample test cases only - never scored)
+   ============================================================ */
+async function runVisibleTests(q, code) {
+  const statusEl = document.getElementById("pythonStatus");
+  const resultsEl = document.getElementById("testResults");
+  statusEl.textContent = "Running Python...";
+  resultsEl.innerHTML = "";
+
+  try {
+    const pyodide = await ensurePyodide();
+    const testCases = q.visibleTestCases || [];
+    const results = await runAllTestCases(pyodide, code, testCases, (q.timeLimit || 5) * 1000);
+
+    statusEl.textContent = `${results.filter((r) => r.passed).length} / ${results.length} public test cases passed`;
+    resultsEl.innerHTML = results
+      .map(
+        (r, i) => `
+        <div class="testcase-result ${r.passed ? "pass" : "fail"}">
+          <div><strong>Test ${i + 1}: ${r.passed ? "PASSED" : "FAILED"}</strong> &middot; ${r.executionStatus} &middot; ${r.executionTimeMs} ms</div>
+          <div><strong>Input:</strong><pre class="testcase-value">${escapeHtml(r.input || "(empty input)")}</pre></div>
+          <div><strong>Expected Output:</strong><pre class="testcase-value">${escapeHtml(r.expectedOutput ?? "")}</pre></div>
+          <div><strong>Your Output:</strong><pre class="testcase-value">${escapeHtml(r.actualOutput ?? "")}</pre></div>
+          ${r.errorMessage ? `<div>Error: ${escapeHtml(r.errorMessage)}</div>` : ""}
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    statusEl.textContent = "Could not run Python in this browser.";
+    console.error(err);
+  }
+}
+
+/* ============================================================
+   SUBMIT CODE (full test suite incl. hidden - scored + saved)
+   ============================================================ */
+async function submitCode(q, code) {
+  const statusEl = document.getElementById("pythonStatus");
+  const resultsEl = document.getElementById("testResults");
+  statusEl.textContent = "Submitting and grading...";
+  document.getElementById("submitCodeBtn").disabled = true;
+
+  try {
+    const pyodide = await ensurePyodide();
+    const allTests = [...(q.visibleTestCases || []), ...(q.hiddenTestCases || [])];
+    const results = await runAllTestCases(pyodide, code, allTests, (q.timeLimit || 5) * 1000);
+
+    const passedCount = results.filter((r) => r.passed).length;
+    const marksObtained = computeCodingMarks(q.marks, results);
+    const totalExecutionTimeMs = results.reduce((sum, r) => sum + (r.executionTimeMs || 0), 0);
+    const hadError = results.some((r) => r.executionStatus === "error" || r.executionStatus === "timeout");
+    const firstError = results.find((r) => r.errorMessage)?.errorMessage || null;
+
+    await createCodeSubmission({
+      studentId: currentUser.uid,
+      examId,
+      questionId: q.id,
+      language: "python",
+      sourceCode: code,
+      compilationStatus: results.some((r) => r.compilationStatus === "error") ? "error" : "success",
+      executionStatus: hadError ? "error" : "completed",
+      testCasesPassed: passedCount,
+      totalTestCases: allTests.length,
+      marksObtained,
+      executionTimeMs: totalExecutionTimeMs,
+      memoryUsage: null, // not measurable from in-browser Pyodide execution
+      errorMessage: firstError
+    });
+
+    // Keep the best mark in the single exam submission document. Final grading
+    // can then use this local/session value instead of querying every code
+    // attempt again at exam submission time.
+    const previousBest = codingBestMarks.get(q.id) || 0;
+    if (marksObtained > previousBest) codingBestMarks.set(q.id, marksObtained);
+
+    answers[q.id] = { ...(answers[q.id] || {}), code };
+    scheduleAutosave();
+
+    statusEl.textContent = `Submitted: ${passedCount} / ${allTests.length} test cases passed \u00b7 ${marksObtained} / ${q.marks} marks`;
+
+    // Public tests always show details. Hidden test inputs and expected outputs
+    // are disclosed only for failed cases to help the student debug.
+    const publicCount = (q.visibleTestCases || []).length;
+    if (allTests.length > 0 && passedCount === allTests.length) {
+      resultsEl.innerHTML = `<div class="testcase-result pass"><strong>✓ All test cases passed!</strong><div>${passedCount} / ${allTests.length} test cases passed.</div></div>`;
+    } else {
+      resultsEl.innerHTML = results.map((r, i) => {
+        if (r.passed) return "";
+        const isHidden = i >= publicCount;
+        return `<div class="testcase-result fail">
+          <strong>${isHidden ? "Hidden test" : "Public test"} ${isHidden ? i - publicCount + 1 : i + 1}: FAILED</strong>
+          ${r.executionStatus ? ` &middot; ${r.executionStatus}` : ""}${r.executionTimeMs != null ? ` &middot; ${r.executionTimeMs} ms` : ""}
+          <div><strong>Input:</strong><pre class="testcase-value">${escapeHtml(r.input || "(empty input)")}</pre></div>
+          <div><strong>Expected Output:</strong><pre class="testcase-value">${escapeHtml(r.expectedOutput ?? "")}</pre></div>
+          <div><strong>Your Output:</strong><pre class="testcase-value">${escapeHtml(r.actualOutput ?? "")}</pre></div>
+          ${r.errorMessage ? `<div><strong>Error:</strong><pre class="testcase-value">${escapeHtml(r.errorMessage)}</pre></div>` : ""}
+        </div>`;
+      }).join("");
+      if (!results.some((r) => !r.passed)) {
+        resultsEl.innerHTML = `<div class="testcase-result fail">No test cases passed. Please review your code and try again.</div>`;
+      }
+    }
+
+    // Add the new attempt to the in-memory history so navigating away/back
+    // does not trigger another Firestore query.
+    const cachedHistory = submissionHistoryCache.get(q.id) || [];
+    cachedHistory.unshift({
+      id: null,
+      studentId: currentUser.uid,
+      examId,
+      questionId: q.id,
+      submittedAt: new Date().toISOString(),
+      testCasesPassed: passedCount,
+      totalTestCases: allTests.length,
+      marksObtained
+    });
+    submissionHistoryCache.set(q.id, cachedHistory);
+    renderSubmissionHistory(q.id);
+    renderQuestionNav();
+  } catch (err) {
+    statusEl.textContent = "Could not submit code.";
+    console.error(err);
+  } finally {
+    document.getElementById("submitCodeBtn").disabled = false;
+  }
+}
+
+async function renderSubmissionHistory(questionId) {
+  const wrap = document.getElementById("submissionHistory");
+  if (!wrap) return;
+  wrap.innerHTML = `<div class="small text-muted">Loading submission history...</div>`;
+
+  try {
+    let history = submissionHistoryCache.get(questionId);
+    if (!history) {
+      history = await listCodeSubmissions(currentUser.uid, questionId);
+      submissionHistoryCache.set(questionId, history);
+    }
+    if (!history.length) {
+      wrap.innerHTML = `<div class="small text-muted">No submissions yet for this question.</div>`;
+      return;
+    }
+    wrap.innerHTML =
+      `<div class="small fw-semibold mb-1">Your Submissions</div>` +
+      history
+        .map(
+          (s) => `
+          <div class="small text-muted d-flex justify-content-between border-bottom py-1">
+            <span>${new Date(s.submittedAt).toLocaleTimeString()}</span>
+            <span>${s.testCasesPassed}/${s.totalTestCases} passed</span>
+            <span>${s.marksObtained} marks</span>
+          </div>`
+        )
+        .join("");
+  } catch (err) {
+    wrap.innerHTML = "";
+  }
+}
+
+/* ============================================================
+   SUBMIT EXAM (final)
+   ============================================================ */
+document.getElementById("submitExamBtn").addEventListener("click", () => {
+  const warningEl = document.getElementById("flaggedWarning");
+  const reviewBtn = document.getElementById("reviewFlaggedBtn");
+
+  if (flaggedQuestionIds.size > 0) {
+    const flaggedNumbers = questions
+      .map((q, i) => (flaggedQuestionIds.has(q.id) ? i + 1 : null))
+      .filter((n) => n !== null);
+    document.getElementById("flaggedWarningText").textContent =
+      `You still have ${flaggedQuestionIds.size} question${flaggedQuestionIds.size === 1 ? "" : "s"} flagged for review: Q${flaggedNumbers.join(", Q")}.`;
+    warningEl.classList.remove("d-none");
+    reviewBtn.classList.remove("d-none");
+    reviewBtn.onclick = () => {
+      const firstFlaggedIndex = questions.findIndex((q) => flaggedQuestionIds.has(q.id));
+      if (firstFlaggedIndex !== -1) {
+        currentIndex = firstFlaggedIndex;
+        renderCurrentQuestion();
+        renderQuestionNav();
+      }
+    };
+  } else {
+    warningEl.classList.add("d-none");
+    reviewBtn.classList.add("d-none");
+  }
+
+  new bootstrap.Modal(document.getElementById("submitConfirmModal")).show();
+});
+
+document.getElementById("confirmSubmitBtn").addEventListener("click", () => {
+  bootstrap.Modal.getInstance(document.getElementById("submitConfirmModal"))?.hide();
+  handleSubmit("submitted");
+});
+
+async function handleSubmit(status, message) {
+  if (examLocked) return;
+  examLocked = true;
+  examStartInProgress = false;
+
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  examEndTime = null;
+  clearTimeout(saveTimeout);
+  detachSecurityListeners();
+
+  document.querySelectorAll("#examUi input, #examUi textarea, #examUi button, #examUi select").forEach((el) => (el.disabled = true));
+  if (cmEditor) cmEditor.setOption("readOnly", true);
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+
+  // Ensure the latest local answers reach Firestore before final scoring.
+  await flushAnswerSave();
+
+  const { score, mcqScore, codingScore, totalMarks } = await gradeSubmission();
+  const percentage = totalMarks ? Math.round((score / totalMarks) * 10000) / 100 : 0;
+
+  await finalizeSubmission(examId, currentUser.uid, {
+    answers,
+    score,
+    mcqScore,
+    codingScore,
+    totalMarks,
+    percentage,
+    status
+  }).catch((e) => console.error("Failed to finalize submission:", e));
+
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {}
+  showResult(status, message, { score, mcqScore, codingScore, totalMarks });
+}
+
+/**
+ * Final score = MCQ marks (compared live against correctOptionIndex) +
+ * coding marks (the BEST "Submit Code" attempt per question, since a
+ * submission history is kept precisely so a student's strongest attempt
+ * counts - not just whichever one happened to be last).
+ */
+async function gradeSubmission() {
+  let mcqScore = 0;
+  let codingScore = 0;
+  let totalMarks = 0;
+
+  // During this session, best coding marks are tracked in memory. This avoids
+  // an extra collection query for every student's final submit. For resumed
+  // legacy attempts without an in-memory value, use one fallback query.
+  let codingSubs = [];
+  if (questions.some((q) => q.type === "coding") && codingBestMarks.size === 0) {
+    codingSubs = await listCodeSubmissionsForExam(currentUser.uid, examId);
+    for (const s of codingSubs) {
+      const prev = codingBestMarks.get(s.questionId) || 0;
+      if (Number(s.marksObtained) > prev) codingBestMarks.set(s.questionId, Number(s.marksObtained));
+    }
+  }
+
+  for (const q of questions) {
+    totalMarks += q.marks || 0;
+
+    if (q.type === "mcq") {
+      if (answers[q.id] === q.correctOptionIndex) mcqScore += q.marks || 0;
+      continue;
+    }
+
+    const best = codingBestMarks.get(q.id) || 0;
+    codingScore += Number(best) || 0;
+  }
+
+  return { score: mcqScore + codingScore, mcqScore, codingScore, totalMarks };
+}
+
+function showResult(status, message, { score, mcqScore, codingScore, totalMarks }) {
+  const resultMessage = document.getElementById("resultMessage");
+  resultMessage.textContent =
+    message ||
+    (status === "auto-submitted"
+      ? "Your exam was automatically submitted."
+      : "Your exam has been submitted successfully.");
+
+  if (exam.showResult !== false) {
+    document.getElementById("resultScore").textContent = score;
+    document.getElementById("resultTotal").textContent = totalMarks;
+    document.getElementById("resultMcqScore").textContent = mcqScore;
+    document.getElementById("resultCodingScore").textContent = codingScore;
+
+    const percentage = totalMarks ? Math.round((score / totalMarks) * 10000) / 100 : 0;
+    const passed = isPass(percentage);
+    document.getElementById("resultPassFail").innerHTML =
+      `<span class="badge ${passed ? "bg-success" : "bg-danger"} fs-6">${passed ? "PASS" : "FAIL"}</span>` +
+      `<div class="small text-muted mt-1">Pass mark: ${PASS_MARK}%</div>`;
+
+    document.getElementById("resultScoreBlock").classList.remove("d-none");
+  }
+
+  new bootstrap.Modal(document.getElementById("resultModal")).show();
+}

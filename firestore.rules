@@ -1,0 +1,292 @@
+rules_version = '2';
+
+// NOTE: This is a client-only project (no Cloud Functions / backend).
+// Because of that, two things can't be made truly secret from the browser:
+//   1. "hiddenTestCases" on a coding question - hidden from the UI, not
+//      cryptographically secret (any authenticated client can read the
+//      question document directly).
+//   2. "published: false" (draft) questions - hidden from the student UI
+//      by query filters, but not blocked at the rules level, since that
+//      would require per-document field checks tied to exam ownership
+//      that add complexity without real security here (a determined
+//      student could still fetch a draft question doc directly).
+// If you need true server-side secrecy for either, move grading and
+// question delivery into a Cloud Function later.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().role == 'admin';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // users/{uid}
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAdmin() || (isOwner(uid) && request.resource.data.role == 'student' && request.resource.data.email is string && request.resource.data.name is string);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Pyvanta subscriptions: students may submit payment requests for themselves;
+    // only admins can review requests or activate/change subscriptions.
+    match /subscriptionRequests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.transactionRef is string
+        && request.resource.data.amount is number;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+    match /subscriptions/{uid} {
+      allow read: if isAdmin() || isOwner(uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    // exams/{examId}
+    match /exams/{examId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // questions/{questionId}
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // examSchedules/{scheduleId}
+    // Up to 7 date/time schedules per exam (an alternative to the
+    // single startTime/endTime pair on the exam doc itself). Students
+    // need read access to compute which schedule window is currently
+    // open; only admins can add/edit/remove schedules.
+    // Tiny cross-client cache version documents. Students may read; admins may update.
+  match /cacheVersions/{versionId} {
+    allow read: if isSignedIn();
+    allow write: if isAdmin();
+  }
+
+  match /examSchedules/{scheduleId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // weeklyToppers/current
+    // A single small, admin-curated leaderboard doc (section, top
+    // percentage, tied students' name/roll number only) that any
+    // signed-in user can read. This exists specifically so students
+    // can see the "Toppers of the Week" carousel without needing
+    // read access to other students' actual submissions.
+    match /weeklyToppers/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // weeklyCodingToppers/current
+    // Separate leaderboard for coding-exam performance only.
+    match /weeklyCodingToppers/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // allTimePythonTopper/current
+    // Admin-published all-time Python champion(s).
+    match /allTimePythonTopper/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // bestLearner/current
+    // Admin-published all-time Learning Points champion(s).
+    match /bestLearner/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // submissions/{submissionId}
+    match /submissions/{submissionId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.studentId == request.auth.uid;
+
+      allow update: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid &&
+         resource.data.status == 'in-progress');
+
+      allow delete: if isAdmin();
+    }
+
+    // codeSubmissions/{submissionId}
+    // One immutable document per "Submit Code" click - a running history
+    // of a student's attempts at a coding question. Never updated after
+    // creation; a new attempt is always a new document.
+    match /codeSubmissions/{submissionId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.studentId == request.auth.uid;
+
+      allow update: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid && request.resource.data.studentId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ===================== Learning Section =====================
+    // Self-paced learning: levels -> concepts (read in order) -> MCQ
+    // test (must pass) -> coding questions. No proctoring/timers here,
+    // so rules are simpler than the exam collections above.
+
+    // learningLevels/{levelId}
+    match /learningLevels/{levelId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // learningConcepts/{conceptId}
+    match /learningConcepts/{conceptId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // learningMcqQuestions/{questionId}
+    match /learningMcqQuestions/{questionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // learningCodingQuestions/{questionId}
+    // Same "hidden test cases are UI-hidden, not secret" limitation as
+    // the exam questions collection above.
+    match /learningCodingQuestions/{questionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // learningProgress/{progressId}  (doc id: {levelId}_{studentId})
+    // Not proctored, so unlike exam submissions a student can freely
+    // update their own progress as they read concepts / retake the MCQ.
+    match /learningProgress/{progressId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.studentId == request.auth.uid;
+
+      allow update: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    // learningCodeSubmissions/{submissionId}
+    // Mirrors codeSubmissions, but for practice coding questions inside
+    // a learning level instead of an exam.
+    match /learningCodeSubmissions/{submissionId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.studentId == request.auth.uid;
+
+      allow update: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid &&
+         request.resource.data.studentId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ===================== Daily Learning Streak =====================
+    // One document per student per IST calendar day. A qualifying day
+    // requires both loginAt and solvedAt; students can only write their own.
+    match /dailyLearningActivity/{activityId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid && request.resource.data.studentId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Admin-published streak leaderboard. Students can only read the
+    // trimmed public leaderboard, never other students' daily activity.
+    match /streakLeaderboard/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ===================== Special Coding Section =====================
+    // Locked until a student reaches 100 Learning Points, earned only
+    // from the existing Learning Section (2 points per fully-solved
+    // coding question). Points live in their own collection rather
+    // than on the users doc so this feature never needs write access
+    // to the more sensitive fields (role, password, etc.) on a
+    // student's user document.
+
+    // studentPoints/{studentId}  (doc id == studentId)
+    // Not proctored/scored content, so - like learningProgress - the
+    // student can freely read/write their own doc. The actual
+    // increment-without-duplicating logic is enforced client-side via
+    // a Firestore transaction (see js/points.js), not by these rules.
+    match /studentPoints/{studentId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == studentId);
+
+      allow create: if isSignedIn() &&
+        request.auth.uid == studentId &&
+        request.resource.data.studentId == studentId;
+
+      allow update: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == studentId && resource.data.studentId == studentId);
+
+      allow delete: if isAdmin();
+    }
+
+    // codeVisualizations/{programId}: published visual programs are visible
+    // to signed-in students; only admins can import, edit, publish or delete.
+    match /codeVisualizations/{programId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // specialCodingQuestions/{questionId}
+    // Exclusive company-style interview practice questions, unlocked
+    // client-side once a student hits 100 points. Same limitation as
+    // every other "hidden until X" collection in this app: Firestore
+    // rules can't gate on a computed points threshold without a
+    // backend, so this is a UI-level unlock, not a hard security
+    // boundary - any signed-in user could technically fetch these
+    // questions directly. Hidden test cases within them are UI-hidden
+    // only, same as everywhere else.
+    match /specialCodingQuestions/{questionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // specialCodeSubmissions/{submissionId}
+    // Run/Submit history for Special Section practice questions -
+    // purely for the student's own reference, not tied to further
+    // scoring or unlocking.
+    match /specialCodeSubmissions/{submissionId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.studentId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.studentId == request.auth.uid;
+
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}

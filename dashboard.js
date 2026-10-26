@@ -1,0 +1,886 @@
+// js/dashboard.js
+// Pure computation + rendering helpers for the admin dashboard's
+// analytics view (stat cards, section-wise report, results table).
+// Data fetching lives in js/admin.js; this file just crunches numbers
+// and paints them into the DOM.
+
+import { SECTIONS } from "./admin.js";
+import { PASS_MARK, isPass, resolveExamWindows, filterSchedulesForSection } from "./grading.js";
+
+function round(n) {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Computes the top-level stat cards from raw students + submissions.
+ * A student is "attempted" if they have at least one submission.
+ */
+export function computeOverallStats(students, exams, submissions, schedulesByExamId = {}) {
+  const attemptedIds = new Set(submissions.map((s) => s.studentId));
+  const totalStudents = students.length;
+  const attempted = attemptedIds.size;
+  const notAttempted = Math.max(totalStudents - attempted, 0);
+
+  // For averages, an ABSENT exam is a real zero-score attempt. Missing
+  // submission rows are synthesized from closed exam windows below.
+  const absentRows = buildAbsentRows(students, submissions.filter((s) => s.status !== "absent"), exams, {}, schedulesByExamId);
+  const scoreRows = [
+    ...submissions.map((s) => ({ ...s, percentage: s.status === "absent" ? 0 : Number(s.percentage) })),
+    ...absentRows.map((s) => ({ ...s, percentage: 0 }))
+  ];
+  const scores = scoreRows
+    .map((s) => Number(s.percentage))
+    .filter((n) => Number.isFinite(n));
+
+  const average = scores.length ? round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  const highest = scores.length ? round(Math.max(...scores)) : 0;
+  const lowest = scores.length ? round(Math.min(...scores)) : 0;
+  const passed = scoreRows.filter((s) => Number.isFinite(Number(s.percentage)) && isPass(Number(s.percentage))).length;
+  const passPercentage = scores.length ? round((passed / scores.length) * 100) : 0;
+
+  return {
+    totalStudents,
+    totalExams: exams.length,
+    attempted,
+    notAttempted,
+    average,
+    highest,
+    lowest,
+    passPercentage
+  };
+}
+
+/**
+ * Computes the per-section (A-G) report rows.
+ * Pass `examId` to restrict to one exam's submissions; "all" (default)
+ * combines every exam's submissions per section.
+ */
+export function computeSectionStats(students, submissions, examId = "all", schedulesByExamId = {}, exams = []) {
+  const scoped = examId === "all" ? submissions : submissions.filter((s) => s.examId === examId);
+  const scopedExams = examId === "all" ? exams : exams.filter((e) => e.id === examId);
+
+  return SECTIONS.map((section) => {
+    const sectionStudents = students.filter((s) => s.section === section);
+    const sectionIds = new Set(sectionStudents.map((s) => s.uid));
+    const sectionSubs = scoped.filter((sub) => sectionIds.has(sub.studentId));
+    const attemptedIds = new Set(sectionSubs.map((s) => s.studentId));
+
+    const sectionAbsentRows = buildAbsentRows(
+      sectionStudents,
+      scoped.filter((s) => s.status !== "absent"),
+      scopedExams,
+      {},
+      schedulesByExamId
+    );
+    const scores = [
+      ...sectionSubs.map((s) => (s.status === "absent" ? 0 : Number(s.percentage))),
+      ...sectionAbsentRows.map(() => 0)
+    ].filter((n) => Number.isFinite(n));
+
+    const average = scores.length ? round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const highest = scores.length ? round(Math.max(...scores)) : 0;
+    const passed = scores.filter((s) => isPass(s)).length;
+    const passPercentage = scores.length ? round((passed / scores.length) * 100) : 0;
+
+    return {
+      section,
+      total: sectionStudents.length,
+      attempted: attemptedIds.size,
+      notAttempted: Math.max(sectionStudents.length - attemptedIds.size, 0),
+      average,
+      highest,
+      passPercentage
+    };
+  });
+}
+
+/**
+ * Builds a report heading from the active filters, e.g. "All Exams
+ * Report", "Midterm Report", "Section A Report", or a combination.
+ * Shared by Excel and PDF export so both show the same heading.
+ */
+export function buildReportTitle(filters, exams) {
+  const examName = filters.examId && filters.examId !== "all" ? exams.find((e) => e.id === filters.examId)?.title : null;
+  const sectionPart = filters.section && filters.section !== "all" ? `Section ${filters.section}` : null;
+
+  if (examName && sectionPart) return `${examName} - ${sectionPart} Report`;
+  if (examName) return `${examName} Report`;
+  if (sectionPart) return `${sectionPart} Report`;
+  return "All Exams Report";
+}
+
+/** Builds a human-readable "Exam: X | Section: Y | ..." summary of the active filters. */
+export function buildFiltersText(filters, exams, students) {
+  const parts = [];
+  parts.push(`Exam: ${filters.examId && filters.examId !== "all" ? exams.find((e) => e.id === filters.examId)?.title || "-" : "All"}`);
+  parts.push(`Section: ${filters.section && filters.section !== "all" ? filters.section : "All"}`);
+  if (filters.studentId && filters.studentId !== "all") {
+    const student = students.find((s) => s.uid === filters.studentId);
+    parts.push(`Student: ${student ? student.name : "-"}`);
+  }
+  if (filters.date) parts.push(`Date: ${filters.date}`);
+  return parts.join("  \u00b7  ");
+}
+
+/** Renders the row of top stat cards into `container`. */
+export function renderStatCards(container, stats) {
+  const cards = [
+    { label: "Total Students", value: stats.totalStudents, icon: "bi-people-fill", color: "#4f46e5" },
+    { label: "Total Exams", value: stats.totalExams, icon: "bi-journal-code", color: "#0ea5e9" },
+    { label: "Attempted", value: stats.attempted, icon: "bi-pencil-square", color: "#16a34a" },
+    { label: "Not Attempted", value: stats.notAttempted, icon: "bi-hourglass-split", color: "#f59e0b" },
+    { label: "Average Score", value: `${stats.average}%`, icon: "bi-bar-chart-fill", color: "#8b5cf6" },
+    { label: "Highest Score", value: `${stats.highest}%`, icon: "bi-trophy-fill", color: "#eab308" },
+    { label: "Lowest Score", value: `${stats.lowest}%`, icon: "bi-graph-down", color: "#ef4444" },
+    { label: "Pass Percentage", value: `${stats.passPercentage}%`, icon: "bi-check-circle-fill", color: "#10b981" }
+  ];
+
+  container.innerHTML = cards
+    .map(
+      (c) => `
+      <div class="col-6 col-md-3">
+        <div class="card stat-card p-3 h-100">
+          <div class="stat-icon" style="background-color:${c.color}"><i class="bi ${c.icon}"></i></div>
+          <div>
+            <div class="stat-label">${c.label}</div>
+            <div class="stat-value">${c.value}</div>
+          </div>
+        </div>
+      </div>`
+    )
+    .join("");
+}
+
+/** Renders the section-wise report table into `tbodyEl`. */
+export function renderSectionTable(tbodyEl, sectionStats) {
+  tbodyEl.innerHTML = sectionStats
+    .map(
+      (row) => `
+      <tr>
+        <td><span class="badge bg-secondary">${row.section}</span></td>
+        <td>${row.total}</td>
+        <td>${row.attempted}</td>
+        <td>${row.notAttempted}</td>
+        <td>${row.average}%</td>
+        <td>${row.highest}%</td>
+        <td>${row.passPercentage}%</td>
+      </tr>`
+    )
+    .join("");
+}
+
+/**
+ * Renders (or re-renders) a Chart.js bar chart comparing each section's
+ * average score. Pass the same `chartInstance` back in on the next call
+ * so it's destroyed and recreated instead of stacking canvases.
+ * Returns the new Chart instance - keep it and pass it back in next time.
+ */
+export function renderSectionChart(canvasEl, sectionStats, chartInstance) {
+  if (chartInstance) chartInstance.destroy();
+
+  return new Chart(canvasEl, {
+    type: "bar",
+    data: {
+      labels: sectionStats.map((s) => `Section ${s.section}`),
+      datasets: [
+        {
+          label: "Average Score (%)",
+          data: sectionStats.map((s) => s.average),
+          backgroundColor: sectionStats.map((s) => (isPass(s.average) ? "#4f46e5" : "#f59e0b")),
+          borderRadius: 6,
+          maxBarThickness: 48
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel: (ctx) => {
+              const s = sectionStats[ctx.dataIndex];
+              return `${s.attempted}/${s.total} attempted \u00b7 Pass rate ${s.passPercentage}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { callback: (v) => `${v}%` },
+          grid: { color: "#eef0f4" }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+/**
+ * Renders the student results table.
+ * `rows` should already be filtered/joined: each row needs
+ * rollNumber, name, section, examTitle, score, percentage, status,
+ * violations, submittedAt, studentId, examId, examType.
+ */
+export function renderResultsTable(tbodyEl, rows) {
+  if (!rows.length) {
+    tbodyEl.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No results match the current filters.</td></tr>`;
+    return;
+  }
+
+  tbodyEl.innerHTML = rows
+    .map(
+      (r) => `
+      <tr>
+        <td>${r.rollNumber ?? "-"}</td>
+        <td>${r.name ?? "-"}</td>
+        <td><span class="badge bg-secondary">${r.section ?? "-"}</span></td>
+        <td>${r.examTitle ?? "-"}</td>
+        <td>${r.score ?? "-"}</td>
+        <td>${r.percentage != null ? r.percentage + "%" : "-"}</td>
+        <td>${resultBadge(r.result)}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td>${r.violations ?? 0}</td>
+        <td>${r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "-"}</td>
+        <td class="text-end text-nowrap">
+          <button class="btn btn-sm btn-outline-primary me-1"
+            data-edit-result="true"
+            data-submission-id="${r.submissionId || ""}"
+            data-student-id="${r.studentId}"
+            data-exam-id="${r.examId}"
+            title="${r.status === "absent" ? "Add Marks" : "Edit Marks"}">
+            <i class="bi bi-pencil-square"></i>
+          </button>
+          ${
+            (r.examType === "coding" || r.examType === "mixed") && r.status !== "absent"
+              ? `<button class="btn btn-sm btn-outline-secondary" data-view-code="${r.studentId}" data-exam-id="${r.examId}" title="View Code"><i class="bi bi-code-slash"></i></button>`
+              : ""
+          }
+        </td>
+      </tr>`
+    )
+    .join("");
+}
+
+function resultBadge(result) {
+  if (result === "PASS") return '<span class="badge bg-success">PASS</span>';
+  if (result === "FAIL") return '<span class="badge bg-danger">FAIL</span>';
+  if (result === "ABSENT") return '<span class="badge bg-dark">ABSENT</span>';
+  return '<span class="badge bg-secondary">-</span>';
+}
+
+function statusBadge(status) {
+  const map = {
+    submitted: "bg-success",
+    "in-progress": "bg-warning text-dark",
+    "auto-submitted": "bg-danger",
+    absent: "bg-dark"
+  };
+  const cls = map[status] || "bg-secondary";
+  return `<span class="badge ${cls}">${status || "unknown"}</span>`;
+}
+
+/**
+ * Joins raw submissions with student + exam lookups and applies the
+ * exam / section / student / date filters. Returns rows ready for
+ * renderResultsTable / Excel / PDF export.
+ */
+export function buildResultRows(submissions, students, exams, filters = {}) {
+  const studentById = new Map(students.map((s) => [s.uid, s]));
+  const examById = new Map(exams.map((e) => [e.id, e]));
+
+  return submissions
+    .map((sub) => {
+      const student = studentById.get(sub.studentId) || {};
+      const exam = examById.get(sub.examId) || {};
+      return {
+        rollNumber: sub.rollNumber || student.rollNumber,
+        name: student.name,
+        section: sub.section || student.section,
+        submissionId: sub.id,
+        examId: sub.examId,
+        examTitle: exam.title,
+        examType: exam.examType,
+        score: sub.score,
+        percentage: sub.percentage,
+        result: sub.status === "absent" ? "ABSENT" : sub.percentage != null ? (isPass(sub.percentage) ? "PASS" : "FAIL") : "-",
+        status: sub.status,
+        violations: sub.violations,
+        submittedAt: sub.submittedAt,
+        studentId: sub.studentId
+      };
+    })
+    .filter((row) => {
+      if (filters.examId && filters.examId !== "all" && row.examId !== filters.examId) return false;
+      if (filters.section && filters.section !== "all" && row.section !== filters.section) return false;
+      if (filters.studentId && filters.studentId !== "all" && row.studentId !== filters.studentId) return false;
+      if (filters.date) {
+        const rowDate = row.submittedAt ? row.submittedAt.slice(0, 10) : null;
+        if (rowDate !== filters.date) return false;
+      }
+      return true;
+    });
+}
+
+/**
+ * Synthesizes "ABSENT" rows for students with no completed submission
+ * on an exam whose time window(s) have all already closed. These are
+ * computed live from the current time - not written to Firestore -
+ * since there is no backend to detect and record absences for
+ * students who never even opened the app. Only exams with at least
+ * one schedule or a legacy start/end window produce absent rows;
+ * open-ended exams never do.
+ *
+ * `schedulesByExamId` is a { [examId]: schedule[] } map - pass an
+ * empty object if schedules haven't been loaded (exams with only a
+ * legacy startTime/endTime still work via resolveExamWindows' fallback).
+ */
+export function buildAbsentRows(students, submissions, exams, filters = {}, schedulesByExamId = {}) {
+  const now = new Date();
+  if (filters.date) return []; // absent rows have no submission date to match against
+
+  const rows = [];
+  exams.forEach((exam) => {
+    const allSchedules = schedulesByExamId[exam.id] || [];
+    if (filters.examId && filters.examId !== "all" && exam.id !== filters.examId) return;
+
+    const examSubs = submissions.filter((s) => s.examId === exam.id);
+
+    students.forEach((student) => {
+      if (filters.section && filters.section !== "all" && student.section !== filters.section) return;
+      if (filters.studentId && filters.studentId !== "all" && student.uid !== filters.studentId) return;
+
+      // Only the schedules that actually include this student's
+      // section (or apply to everyone) count toward their absence -
+      // a section that was never assigned any slot was never expected
+      // to attend, so it can't be "absent".
+      const relevantSchedules = allSchedules.length ? filterSchedulesForSection(allSchedules, student.section) : allSchedules;
+      if (allSchedules.length && !relevantSchedules.length) return; // not scheduled for this section at all
+
+      const windows = resolveExamWindows(exam, relevantSchedules);
+      if (!windows.length) return; // no time restriction configured - never "absent"
+      if (windows.some((w) => w.end > now)) return; // at least one relevant window is still current or upcoming
+
+      const sub = examSubs.find((s) => s.studentId === student.uid);
+      const isAbsent = !sub || sub.status === "in-progress";
+      if (!isAbsent) return;
+
+      rows.push({
+        rollNumber: student.rollNumber,
+        name: student.name,
+        section: student.section,
+        examId: exam.id,
+        examTitle: exam.title,
+        examType: exam.examType,
+        submissionId: sub?.id || null,
+        score: null,
+        percentage: null,
+        result: "ABSENT",
+        status: "absent",
+        violations: sub?.violations ?? 0,
+        submittedAt: null,
+        studentId: student.uid
+      });
+    });
+  });
+
+  return rows;
+}
+
+/** Real submission rows + synthesized absent rows, same filters applied to both. */
+/**
+ * Finds this week's top scorer(s) per section, for the "Toppers of the
+ * Week" carousel. "This week" = submissions from the last 7 days.
+ * If more than one student in a section ties for the top percentage,
+ * ALL of them are included (no arbitrary pick).
+ * Returns [{ section, percentage, toppers: [{ name, rollNumber, examTitle }] }, ...]
+ * for sections that had at least one completed submission this week,
+ * sorted by percentage descending.
+ */
+export function computeWeeklyToppers(students, submissions, exams) {
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const examById = new Map(exams.map((e) => [e.id, e]));
+  const studentById = new Map(students.map((s) => [s.uid, s]));
+
+  const recent = submissions.filter(
+    (s) =>
+      (s.status === "submitted" || s.status === "auto-submitted") &&
+      s.percentage != null &&
+      s.submittedAt &&
+      new Date(s.submittedAt) >= oneWeekAgo
+  );
+
+  const bySection = {};
+  recent.forEach((sub) => {
+    const student = studentById.get(sub.studentId);
+    if (!student) return;
+    (bySection[student.section] = bySection[student.section] || []).push({ sub, student });
+  });
+
+  const results = Object.entries(bySection).map(([section, entries]) => {
+    const topPercentage = Math.max(...entries.map((e) => e.sub.percentage));
+    const toppers = entries
+      .filter((e) => e.sub.percentage === topPercentage)
+      .map((e) => ({
+        name: e.student.name,
+        rollNumber: e.student.rollNumber,
+        examTitle: examById.get(e.sub.examId)?.title || "Exam"
+      }));
+    return { section, percentage: topPercentage, toppers };
+  });
+
+  return results.sort((a, b) => b.percentage - a.percentage || a.section.localeCompare(b.section));
+}
+
+/**
+ * Fills in a Bootstrap carousel's slides for a "Toppers of the Week"
+ * widget, kept deliberately small/cute. Shared by the admin dashboard
+ * (which computes `entries` itself) and the student dashboard (which
+ * reads a small published leaderboard doc, since students can't query
+ * other students' submissions directly).
+ *
+ * If a section has more than a handful of students tied for #1 (e.g.
+ * an entire class of 30 all scoring 100%), listing every name would
+ * blow up the compact card - so past that threshold it collapses into
+ * one short "N students tied" summary instead of N individual chips.
+ */
+/**
+ * Renders one small, independent card PER SECTION - each with its own
+ * auto-rotating carousel cycling through that section's tied
+ * topper(s), completely decoupled from every other section's card
+ * (this is intentionally NOT one shared carousel). A section with a
+ * single topper just displays them statically, no pointless animation.
+ * Ties of any size are all included - the carousel just rotates
+ * through them one at a time, so there's no overflow risk even for a
+ * whole section tied at #1.
+ *
+ * Returns the bootstrap.Carousel instances created, so the caller can
+ * dispose them before the next re-render (dynamically-inserted
+ * carousels need manual init/disposal - Bootstrap's data-api only
+ * wires up elements present at initial page load).
+ */
+export function renderTopperGrid(containerEl, entries) {
+  const initials = (name) =>
+    (name || "?")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join("");
+
+  const esc = (str) =>
+    String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const slideContent = (t, percentage) => `
+    <div class="topper-mini-avatar">${initials(t.name)}</div>
+    <div class="topper-mini-medal">&#129351;</div>
+    <div class="topper-mini-name">${esc(t.name)}</div>
+    <div class="topper-mini-roll">${esc(t.rollNumber)}</div>
+    <div class="topper-mini-pct">${percentage}%</div>
+  `;
+
+  containerEl.innerHTML = entries
+    .map((entry, idx) => {
+      const carouselId = `topperMini${idx}`;
+      const body =
+        entry.toppers.length <= 1
+          ? `<div class="topper-mini-slide">${slideContent(entry.toppers[0], entry.percentage)}</div>`
+          : `<div id="${carouselId}" class="carousel slide carousel-fade topper-mini-carousel" data-bs-interval="2500">
+               <div class="carousel-inner">
+                 ${entry.toppers
+                   .map(
+                     (t, i) =>
+                       `<div class="carousel-item ${i === 0 ? "active" : ""}"><div class="topper-mini-slide">${slideContent(t, entry.percentage)}</div></div>`
+                   )
+                   .join("")}
+               </div>
+             </div>`;
+
+      return `
+        <div class="topper-mini-card">
+          <div class="topper-mini-section">${esc(entry.section)}</div>
+          ${body}
+        </div>`;
+    })
+    .join("");
+
+  return [...containerEl.querySelectorAll(".topper-mini-carousel")].map(
+    (el) => new bootstrap.Carousel(el, { ride: "carousel", interval: Number(el.dataset.bsInterval) || 2500 })
+  );
+}
+
+
+/**
+ * Finds everyone in the top 3 rank positions for CODING exams in the last 7 days,
+ * including all ties at each rank.
+ * Unlike "Toppers of the Week", this leaderboard is based only on
+ * coding-exam performance. A student with multiple coding exams is
+ * evaluated using their combined coding marks / combined coding
+ * maximum marks, so one unusually high-mark exam does not dominate.
+ *
+ * Returns [{ rank, name, rollNumber, section, percentage,
+ *            codingScore, totalMarks, examsCount }]
+ */
+/**
+ * Computes the all-time Python topper(s). Eligibility is strict:
+ * - at least 3 completed coding exams
+ * - more than 2 completed MCQ exams (3+)
+ * The displayed percentage is the arithmetic average of each completed
+ * coding/MCQ exam percentage for that student. All students tied at the
+ * highest average are returned.
+ */
+/**
+ * Computes the all-time Best Learner(s) from Learning Points.
+ * Learning points are awarded by the existing Learning Section.
+ * All students tied at the highest point total are returned as Rank #1.
+ */
+export function computeBestLearner(students, studentPoints) {
+  const studentById = new Map(students.map((s) => [s.uid, s]));
+  const rows = (studentPoints || [])
+    .map((doc) => {
+      const studentId = doc.studentId || doc.id;
+      const student = studentById.get(studentId);
+      const points = Number(doc.points);
+      if (!student || !Number.isFinite(points) || points < 0) return null;
+      return {
+        student,
+        points: Math.floor(points),
+        completedQuestions: Array.isArray(doc.completedCodingQuestionIds)
+          ? doc.completedCodingQuestionIds.length : 0
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.points - a.points || String(a.student.name || '').localeCompare(String(b.student.name || '')));
+
+  if (!rows.length || rows[0].points <= 0) return [];
+  // Show the top 3 learners, ordered by total learning points.
+  return rows.map((row, index) => ({
+    rank: index + 1,
+    uid: row.student.uid,
+    name: row.student.name,
+    rollNumber: row.student.rollNumber,
+    section: row.student.section,
+    points: row.points,
+    completedQuestions: row.completedQuestions
+  }));
+}
+
+/** Renders the premium all-time Best Learner section. */
+export function renderBestLearner(containerEl, entries) {
+  if (!containerEl) return;
+  containerEl.innerHTML = entries.map((t) => {
+    const esc = (str) => String(str ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const initials = (name) => (name || '?').trim().split(/\s+/).slice(0, 2)
+      .map((w) => w[0]?.toUpperCase()).join('');
+    return `
+      <div class="best-learner-card">
+        <div class="best-learner-medal">${t.rank === 1 ? "🥇" : t.rank === 2 ? "🥈" : "🥉"}</div>
+        <div class="best-learner-avatar">${initials(t.name)}</div>
+        <div class="best-learner-main">
+          <div class="best-learner-badge">#${t.rank} BEST LEARNER · ALL TIME</div>
+          <div class="best-learner-name">${esc(t.name)}</div>
+          <div class="best-learner-meta">${esc(t.rollNumber)} · ${esc(t.section)}</div>
+        </div>
+        <div class="best-learner-score">
+          <div class="best-learner-points">${t.points}</div>
+          <div class="best-learner-label">LEARNING POINTS</div>
+          <div class="best-learner-count">${t.completedQuestions} completed learning questions</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+export function computeAllTimePythonTopper(students, submissions, exams, schedulesByExamId = {}) {
+  const examById = new Map(exams.map((e) => [e.id, e]));
+  const studentById = new Map(students.map((s) => [s.uid, s]));
+  const totals = new Map();
+
+  submissions.forEach((sub) => {
+    const exam = examById.get(sub.examId);
+    if (!exam) return;
+    if (!["submitted", "auto-submitted"].includes(sub.status)) return;
+
+    const percentage = Number(sub.percentage);
+    if (!Number.isFinite(percentage)) return;
+
+    const student = studentById.get(sub.studentId);
+    if (!student) return;
+
+    // Coding exams on this platform are Python coding exams. If a future
+    // exam explicitly declares another language, don't count it here.
+    const isCoding = exam.examType === "coding" || exam.examType === "mixed";
+    const isPythonCoding = isCoding && (
+      !exam.language ||
+      String(exam.language).toLowerCase() === "python" ||
+      (Array.isArray(exam.allowedLanguages) && exam.allowedLanguages.some((l) => String(l).toLowerCase() === "python"))
+    );
+    const isMcq = exam.examType === "mcq" || exam.examType === "mixed";
+    if (!isPythonCoding && !isMcq) return;
+
+    const current = totals.get(sub.studentId) || {
+      student,
+      codingExams: 0,
+      mcqExams: 0,
+      percentageSum: 0,
+      examCount: 0
+    };
+
+    if (isPythonCoding) current.codingExams += 1;
+    if (isMcq) current.mcqExams += 1;
+    current.percentageSum += percentage;
+    current.examCount += 1;
+    totals.set(sub.studentId, current);
+  });
+
+  // Closed scheduled exams with no submission count as 0% in the
+  // average, but do NOT satisfy the minimum completed-exam eligibility.
+  const absentRows = buildAbsentRows(
+    students,
+    submissions.filter((s) => s.status !== "absent"),
+    exams,
+    {},
+    schedulesByExamId
+  );
+  absentRows.forEach((row) => {
+    const exam = examById.get(row.examId);
+    const student = studentById.get(row.studentId);
+    if (!exam || !student) return;
+    const isCoding = exam.examType === "coding" || exam.examType === "mixed";
+    const isPythonCoding = isCoding && (
+      !exam.language ||
+      String(exam.language).toLowerCase() === "python" ||
+      (Array.isArray(exam.allowedLanguages) && exam.allowedLanguages.some((l) => String(l).toLowerCase() === "python"))
+    );
+    const isMcq = exam.examType === "mcq" || exam.examType === "mixed";
+    if (!isPythonCoding && !isMcq) return;
+
+    const current = totals.get(row.studentId) || {
+      student, codingExams: 0, mcqExams: 0, percentageSum: 0, examCount: 0
+    };
+    current.percentageSum += 0;
+    current.examCount += 1;
+    totals.set(row.studentId, current);
+  });
+
+  const eligible = [...totals.values()]
+    .filter((row) => row.codingExams >= 3 && row.mcqExams > 2 && row.examCount > 0)
+    .map((row) => ({
+      ...row,
+      averagePercentage: Math.round((row.percentageSum / row.examCount) * 100) / 100
+    }))
+    .sort((a, b) =>
+      b.averagePercentage - a.averagePercentage ||
+      String(a.student.name || "").localeCompare(String(b.student.name || ""))
+    );
+
+  if (!eligible.length) return [];
+
+  // Show the top 3 eligible Python performers, ordered by average percentage.
+  return eligible.map((row, index) => ({
+    rank: index + 1,
+    uid: row.student.uid,
+    name: row.student.name,
+    rollNumber: row.student.rollNumber,
+    section: row.student.section,
+    averagePercentage: row.averagePercentage,
+    codingExams: row.codingExams,
+    mcqExams: row.mcqExams,
+    totalExams: row.examCount
+  }));
+}
+
+/** Renders the premium all-time Python champion section. */
+export function renderAllTimePythonTopper(containerEl, entries) {
+  if (!containerEl) return;
+  if (containerEl._pythonTopperAutoScroll) {
+    clearInterval(containerEl._pythonTopperAutoScroll);
+    containerEl._pythonTopperAutoScroll = null;
+  }
+
+  const esc = (str) => String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const initials = (name) => (name || "?").trim().split(/\s+/).slice(0, 2)
+    .map((w) => w[0]?.toUpperCase()).join("");
+
+  containerEl.innerHTML = entries.map((t) => `
+    <div class="python-champion-card">
+      <div class="python-champion-medal">${t.rank === 1 ? "🥇" : t.rank === 2 ? "🥈" : "🥉"}</div>
+      <div class="python-champion-avatar">${initials(t.name)}</div>
+      <div class="python-champion-main">
+        <div class="python-champion-badge">#${t.rank} PYTHON TOPPER · TILL NOW</div>
+        <div class="python-champion-name">${esc(t.name)}</div>
+        <div class="python-champion-meta">${esc(t.rollNumber)} · ${esc(t.section)}</div>
+      </div>
+      <div class="python-champion-score">
+        <div class="python-champion-percent">${t.averagePercentage}%</div>
+        <div class="python-champion-label">AVERAGE</div>
+        <div class="python-champion-counts">${t.codingExams} Coding · ${t.mcqExams} MCQ</div>
+      </div>
+    </div>
+  `).join("");
+
+  if (entries.length > 1) {
+    containerEl._pythonTopperAutoScroll = setInterval(() => {
+      const card = containerEl.querySelector('.python-champion-card');
+      if (!card) return;
+      const gap = parseFloat(getComputedStyle(containerEl).columnGap || getComputedStyle(containerEl).gap || '0') || 0;
+      const step = card.getBoundingClientRect().width + gap;
+      const next = containerEl.scrollLeft + step;
+      if (next >= containerEl.scrollWidth - containerEl.clientWidth - 2) {
+        containerEl.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        containerEl.scrollTo({ left: next, behavior: 'smooth' });
+      }
+    }, 2000);
+  }
+}
+
+export function computeWeeklyCodingToppers(students, submissions, exams) {
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const examById = new Map(exams.map((e) => [e.id, e]));
+  const studentById = new Map(students.map((s) => [s.uid, s]));
+  const totals = new Map();
+
+  submissions.forEach((sub) => {
+    const exam = examById.get(sub.examId);
+    if (!exam || !["coding", "mixed"].includes(exam.examType)) return;
+    if (!["submitted", "auto-submitted"].includes(sub.status)) return;
+    if (!sub.submittedAt || new Date(sub.submittedAt) < oneWeekAgo) return;
+
+    const student = studentById.get(sub.studentId);
+    if (!student) return;
+
+    const earned = Number(sub.codingScore ?? sub.score ?? 0);
+    const maximum = Number(sub.totalMarks ?? exam.totalMarks ?? 0);
+    if (!Number.isFinite(earned) || !Number.isFinite(maximum) || maximum <= 0) return;
+
+    const current = totals.get(sub.studentId) || {
+      student,
+      codingScore: 0,
+      totalMarks: 0,
+      examsCount: 0
+    };
+    current.codingScore += earned;
+    current.totalMarks += maximum;
+    current.examsCount += 1;
+    totals.set(sub.studentId, current);
+  });
+
+  // Only the highest percentage is the weekly coding topper.
+  // Every student tied at that highest percentage is shown.
+  const ranked = [...totals.values()]
+    .map((row) => ({
+      ...row,
+      percentage: Math.round((row.codingScore / row.totalMarks) * 10000) / 100
+    }))
+    .sort((a, b) =>
+      b.percentage - a.percentage ||
+      String(a.student.name || "").localeCompare(String(b.student.name || ""))
+    );
+
+  if (!ranked.length) return [];
+
+  const topPercentage = ranked[0].percentage;
+  return ranked
+    .filter((row) => row.percentage === topPercentage)
+    .map((row) => ({
+      rank: 1,
+      name: row.student.name,
+      rollNumber: row.student.rollNumber,
+      section: row.student.section,
+      percentage: row.percentage,
+      codingScore: row.codingScore,
+      totalMarks: row.totalMarks,
+      examsCount: row.examsCount
+    }));
+}
+
+/**
+ * Renders the separate premium-looking weekly coding leaderboard.
+ * This intentionally has its own DOM/classes and does not touch the
+ * existing "Toppers of the Week" renderer.
+ */
+export function renderCodingToppers(containerEl, entries) {
+  // Clear any previous auto-scroll timer before re-rendering.
+  if (containerEl._codingTopperAutoScroll) {
+    clearInterval(containerEl._codingTopperAutoScroll);
+    containerEl._codingTopperAutoScroll = null;
+  }
+
+  const esc = (str) =>
+    String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const initials = (name) =>
+    (name || "?").trim().split(/\s+/).slice(0, 2)
+      .map((w) => w[0]?.toUpperCase()).join("");
+
+  const medals = ["🥇"];
+
+  containerEl.innerHTML = entries.map((t) => `
+    <div class="coding-topper-card coding-topper-rank-${t.rank}">
+      <div class="coding-topper-rank">${medals[t.rank - 1] || `#${t.rank}`}</div>
+      <div class="coding-topper-avatar">${initials(t.name)}</div>
+      <div class="coding-topper-main">
+        <div class="coding-topper-badge">#${t.rank} CODING TOPPER</div>
+        <div class="coding-topper-name">${esc(t.name)}</div>
+        <div class="coding-topper-meta">
+          <span>${esc(t.rollNumber)}</span>
+          <span>${esc(t.section)}</span>
+        </div>
+      </div>
+      <div class="coding-topper-score">
+        <div class="coding-topper-percent">${t.percentage}%</div>
+        <div class="coding-topper-marks">${t.codingScore}/${t.totalMarks} marks</div>
+        <div class="coding-topper-exams">${t.examsCount} coding exam${t.examsCount === 1 ? "" : "s"}</div>
+      </div>
+    </div>
+  `).join("");
+
+  // Automatically move exactly one card every 2 seconds. The carousel
+  // remains a single horizontal row; if there is no overflow, nothing moves.
+  if (entries.length > 1) {
+    const step = () => {
+      const firstCard = containerEl.querySelector(".coding-topper-card");
+      if (!firstCard) return;
+
+      const styles = window.getComputedStyle(containerEl);
+      const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      const stepSize = firstCard.getBoundingClientRect().width + gap;
+      const maxScroll = containerEl.scrollWidth - containerEl.clientWidth;
+
+      if (maxScroll <= 1 || stepSize <= 0) return;
+
+      if (containerEl.scrollLeft + stepSize >= maxScroll - 2) {
+        containerEl.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        containerEl.scrollBy({ left: stepSize, behavior: "smooth" });
+      }
+    };
+
+    containerEl._codingTopperAutoScroll = setInterval(step, 2000);
+  }
+}
+
+/** Real submission rows + synthesized absent rows, sorted by percentage
+ *  descending (highest score first; rows with no percentage - e.g.
+ *  ABSENT - sort to the bottom). Same filters applied to both. */
+export function buildResultRowsWithAbsent(submissions, students, exams, filters = {}, schedulesByExamId = {}) {
+  const rows = [
+    ...buildResultRows(submissions, students, exams, filters),
+    ...buildAbsentRows(students, submissions, exams, filters, schedulesByExamId)
+  ];
+  return rows.sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1));
+}

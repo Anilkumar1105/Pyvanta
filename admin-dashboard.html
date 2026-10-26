@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon"
+href="./favicon.svg">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="maintenance.js"></script>
+<title>Admin Dashboard - Pyvanta Learning Portal</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+<link href="style.css" rel="stylesheet" />
+  <link href="pyvanta-theme.css" rel="stylesheet" />
+</head>
+<body>
+<div class="container pt-3"><a class="btn btn-outline-mint btn-sm" href="admin-subscriptions.html"><i class="bi bi-credit-card me-2"></i>Manage subscriptions &amp; UPI requests</a></div>
+
+<div class="app-shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="brand"><i class="bi bi-code-square me-1"></i> Pyvanta Admin</div>
+    <nav class="flex-grow-1 py-2">
+      <a class="nav-link active" data-pane="analyticsPane"><i class="bi bi-bar-chart-line"></i> Analytics</a>
+      <a class="nav-link" data-pane="resultsPane"><i class="bi bi-table"></i> Results</a>
+      <a class="nav-link" data-pane="studentsPane"><i class="bi bi-people"></i> Students</a>
+      <a class="nav-link" data-pane="examsPane"><i class="bi bi-journal-code"></i> Exams</a>
+      <a class="nav-link" data-pane="learningPane"><i class="bi bi-mortarboard"></i> Learning</a>
+      <a class="nav-link" data-pane="specialPane"><i class="bi bi-gem"></i> Special Section</a>
+    </nav>
+    <div class="sidebar-footer">Signed in as<br /><span id="adminName" class="text-light"></span></div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="app-main">
+    <div class="app-topbar">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle"><i class="bi bi-list"></i></button>
+        <h5 class="mb-0" id="pageTitle">Analytics</h5>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" data-logout="true"><i class="bi bi-box-arrow-right me-1"></i>Logout</button>
+    </div>
+
+    <div class="app-content">
+
+      <!-- ===================== ANALYTICS PANE ===================== -->
+      <div class="tab-pane" id="analyticsPane">
+        <div class="row g-3 mb-4" id="statCards"></div>
+
+        <div id="bestLearnerSection" class="d-none mb-4">
+          <div class="best-learner-hero">
+            <div class="best-learner-heading">
+              <div class="best-learner-icon">🏆</div>
+              <div>
+                <div class="best-learner-kicker">SPECIAL HONOUR · ALL TIME</div>
+                <h5 class="mb-1">Best Learner</h5>
+                <div class="best-learner-subtitle">Celebrating the student who earned the most Learning Points.</div>
+              </div>
+              <div class="best-learner-crown">🌟</div>
+            </div>
+            <div id="bestLearnerGrid" class="best-learner-grid"></div>
+            <div class="best-learner-footer"><i class="bi bi-stars me-1"></i>Ranked by total Learning Points earned in the Learning Section.</div>
+          </div>
+        </div>
+
+        <div id="pythonTopperSection" class="d-none mb-4">
+          <div class="python-champion-hero">
+            <div class="python-champion-heading">
+              <div class="python-champion-icon">🐍</div>
+              <div>
+                <div class="python-champion-kicker">SPECIAL HONOUR · ALL TIME</div>
+                <h5 class="mb-1">Topper in Python — Till Now</h5>
+                <div class="python-champion-subtitle">Top 3 eligible performers by average across Python coding exams and MCQs.</div>
+              </div>
+              <div class="python-champion-crown">👑</div>
+            </div>
+            <div id="pythonTopperGrid" class="python-champion-grid"></div>
+            <div class="python-champion-footer"><i class="bi bi-shield-check me-1"></i>Top 3 eligible students · minimum 3 coding exams and 3 MCQ exams.</div>
+          </div>
+        </div>
+
+        <div id="toppersSection" class="d-none mb-4">
+          <h6 class="fw-semibold mb-2"><i class="bi bi-trophy-fill me-2 text-warning"></i>Toppers of the Week</h6>
+          <div id="topperGrid" class="topper-grid"></div>
+        </div>
+
+        <div id="codingToppersSection" class="d-none mb-4">
+          <div class="coding-toppers-hero">
+            <div class="coding-toppers-heading">
+              <div class="coding-toppers-icon"><i class="bi bi-code-slash"></i></div>
+              <div>
+                <div class="coding-toppers-kicker">WEEKLY CODING LEADERBOARD</div>
+                <h5 class="mb-1">Coding Toppers of the Week</h5>
+                <div class="coding-toppers-subtitle">Recognizing the students who stood out in coding exams this week.</div>
+              </div>
+            </div>
+            <div id="codingTopperGrid" class="coding-topper-grid"></div>
+            <div class="coding-toppers-footer"><i class="bi bi-patch-check-fill me-1"></i>Based on completed coding-exam results from the last 7 days.</div>
+          </div>
+        </div>
+
+        <div id="streakChampionsSection" class="d-none mb-4">
+          <div class="streak-admin-hero">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div><div class="streak-kicker">DAILY LEARNING CONSISTENCY</div><h5 class="mb-1">🔥 Streak Champions</h5><div class="text-muted small">Students maintaining a current streak of 3 or more consecutive days (login + fully solved Learning problem).</div></div>
+              <div class="display-6">🏆</div>
+            </div>
+            <div id="streakChampionGrid" class="streak-champion-grid"></div>
+          </div>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="fw-semibold"><i class="bi bi-bar-chart-fill me-1"></i>Section-wise Score Comparison</span>
+            <select id="chartExamFilter" class="form-select form-select-sm w-auto">
+              <option value="all">All Exams</option>
+            </select>
+          </div>
+          <div class="card-body">
+            <div style="height: 320px;">
+              <canvas id="sectionChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Section-wise Analysis</div>
+          <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>Section</th><th>Total</th><th>Attempted</th><th>Not Attempted</th>
+                  <th>Average</th><th>Highest</th><th>Pass %</th>
+                </tr>
+              </thead>
+              <tbody id="sectionTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== RESULTS PANE ===================== -->
+      <div class="tab-pane d-none" id="resultsPane">
+        <div class="card">
+          <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="fw-semibold"><i class="bi bi-clipboard-data me-1"></i>Student Results</span>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-sm btn-brand" id="exportExcelBtn"><i class="bi bi-file-earmark-excel me-1"></i>Export to Excel</button>
+              <button class="btn btn-sm btn-outline-danger" id="exportResultsPdfBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Export to PDF</button>
+            </div>
+          </div>
+          <div class="card-body border-bottom">
+            <div class="row g-2">
+              <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Exam</label>
+                <select id="filterExam" class="form-select form-select-sm"><option value="all">All Exams</option></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Section</label>
+                <select id="filterSection" class="form-select form-select-sm"><option value="all">All Sections</option></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Student</label>
+                <select id="filterStudent" class="form-select form-select-sm"><option value="all">All Students</option></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Date</label>
+                <input type="date" id="filterDate" class="form-control form-control-sm" />
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover table-responsive-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Roll No.</th><th>Name</th><th>Section</th><th>Exam</th><th>Score</th>
+                  <th>Percentage</th><th>Result</th><th>Status</th><th>Violations</th><th>Submitted</th><th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== STUDENTS PANE ===================== -->
+      <div class="tab-pane d-none" id="studentsPane">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+          <div id="sectionPills" class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-brand section-pill" data-section="all">All</button>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-success" id="exportStudentsExcelBtn"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+            <button class="btn btn-sm btn-outline-danger" id="exportStudentsPdfBtn"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+            <button class="btn btn-brand btn-sm" data-bs-toggle="modal" data-bs-target="#studentModal" id="addStudentBtn">
+              <i class="bi bi-person-plus me-1"></i>Add Student
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>Roll No.</th><th>Name</th><th>Section</th><th>Email</th><th>Password</th><th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTableBody">
+                <tr><td colspan="6" class="text-center text-muted py-4">No students loaded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== EXAMS PANE ===================== -->
+      <div class="tab-pane d-none" id="examsPane">
+
+        <!-- Exam list view -->
+        <div id="examsListView">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0"><i class="bi bi-journal-code me-1"></i>Exams</h6>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm" id="openExamBinBtn"><i class="bi bi-trash3 me-1"></i>Bin</button>
+              <button class="btn btn-brand btn-sm" data-bs-toggle="modal" data-bs-target="#examModal" id="createExamBtn">
+                <i class="bi bi-plus-lg me-1"></i>Create Exam
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-responsive">
+              <table class="table table-striped mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>Title</th><th>Type</th><th>Duration</th><th>Marks</th><th>Window</th><th>Status</th><th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="examsTableBody">
+                  <tr><td colspan="7" class="text-center text-muted py-4">No exams created yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deleted exams recycle bin -->
+        <div id="examBinView" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h6 class="mb-1"><i class="bi bi-trash3 me-1"></i>Deleted Exams</h6>
+              <small class="text-muted">Deleted exams are kept for 30 days. Restoring brings back the original results and questions.</small>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" id="backFromExamBinBtn"><i class="bi bi-arrow-left me-1"></i>Back to Exams</button>
+          </div>
+          <div class="card"><div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+              <thead><tr><th>Exam</th><th>Deleted on</th><th>Auto-delete on</th><th class="text-end">Actions</th></tr></thead>
+              <tbody id="examBinTableBody"><tr><td colspan="4" class="text-center text-muted py-4">Loading Bin...</td></tr></tbody>
+            </table>
+          </div></div>
+        </div>
+
+        <!-- Exam questions view -->
+        <div id="examQuestionsView" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <button class="btn btn-sm btn-outline-secondary mb-2" id="backToExamsBtn"><i class="bi bi-arrow-left me-1"></i>Back to Exams</button>
+              <h6 class="mb-0" id="questionsExamTitle">Manage Questions</h6>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-outline-primary btn-sm" id="downloadMcqTemplateBtn"><i class="bi bi-download me-1"></i>MCQ Excel Template</button>
+              <button class="btn btn-outline-primary btn-sm" id="downloadCodingTemplateBtn"><i class="bi bi-download me-1"></i>Coding Excel Template</button>
+              <button class="btn btn-outline-secondary btn-sm" id="importExamQuestionsBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Excel / PDF</button>
+              <button class="btn btn-brand btn-sm" id="addQuestionBtn"><i class="bi bi-plus-lg me-1"></i>Add Question</button>
+            </div>
+          </div>
+          <div id="questionsList" class="d-flex flex-column gap-2"></div>
+        </div>
+
+        <!-- Exam schedules view -->
+        <div id="examSchedulesView" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <button class="btn btn-sm btn-outline-secondary mb-2" id="backToExamsFromSchedulesBtn"><i class="bi bi-arrow-left me-1"></i>Back to Exams</button>
+              <h6 class="mb-0" id="schedulesExamTitle">Manage Schedules</h6>
+            </div>
+            <button class="btn btn-brand btn-sm" id="addScheduleBtn"><i class="bi bi-plus-lg me-1"></i>Add Schedule</button>
+          </div>
+          <p class="text-muted small">Add up to 7 date/time schedules for this exam. Dates and times can repeat or differ - each is an independent window students can start within (open for the exam's Duration from that Start Time).</p>
+          <div id="schedulesList" class="d-flex flex-column gap-2"></div>
+        </div>
+
+      </div>
+
+      <!-- ===================== LEARNING PANE ===================== -->
+      <div class="tab-pane d-none" id="learningPane">
+
+        <!-- Dedicated program-only Excel import for Code Visualizations -->
+        <div class="card mb-4 border-primary-subtle" id="codeVisualizationsAdminCard">
+          <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="fw-semibold"><i class="bi bi-play-btn me-2"></i>Code Visualizations Lab</span>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" id="downloadVisualizationTemplateBtn"><i class="bi bi-download me-1"></i>Download Excel Template</button>
+              <button class="btn btn-outline-success btn-sm" id="downloadVisualizationProgramsBtn"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Download Programs</button>
+              <button class="btn btn-brand btn-sm" id="importVisualizationProgramsBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Programs</button>
+              <input type="file" id="visualizationProgramsFile" accept=".xlsx,.xls" class="d-none" />
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="text-muted small mb-2">Import visualization programs only. This does not import or change MCQs, coding exam questions, marks, or learning progress. Students see published programs inside Learning.</p>
+            <div id="visualizationImportStatus" class="small mb-2" role="status"></div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3 p-2 border rounded-3 bg-light">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="selectAllVisualizationPrograms">
+                <label class="form-check-label small" for="selectAllVisualizationPrograms">Select all programs</label>
+              </div>
+              <span id="selectedVisualizationProgramCount" class="small text-muted">0 selected</span>
+              <button type="button" class="btn btn-outline-danger btn-sm ms-auto" id="deleteSelectedVisualizationProgramsBtn" disabled><i class="bi bi-trash me-1"></i>Delete Selected</button>
+            </div>
+            <div id="visualizationProgramsAdminList" class="d-flex flex-column gap-2"><span class="text-muted small">Loading visualization programs…</span></div>
+          </div>
+        </div>
+
+        <!-- Levels list view -->
+        <div id="levelsListView">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0"><i class="bi bi-mortarboard me-1"></i>Learning Levels</h6>
+            <button class="btn btn-brand btn-sm" id="createLevelBtn"><i class="bi bi-plus-lg me-1"></i>Create Level</button>
+          </div>
+          <div class="card">
+            <div class="table-responsive">
+              <table class="table table-striped mb-0 align-middle">
+                <thead>
+                  <tr><th>Title</th><th>Concepts</th><th>MCQs</th><th>Coding Qs</th><th>Pass Mark</th><th>Status</th><th class="text-end">Actions</th></tr>
+                </thead>
+                <tbody id="levelsTableBody">
+                  <tr><td colspan="7" class="text-center text-muted py-4">No learning levels created yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level detail view -->
+        <div id="levelDetailView" class="d-none">
+          <button class="btn btn-sm btn-outline-secondary mb-3" id="backToLevelsBtn"><i class="bi bi-arrow-left me-1"></i>Back to Levels</button>
+          <h6 class="mb-3" id="levelDetailTitle">Level</h6>
+
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span class="fw-semibold"><i class="bi bi-journal-text me-1"></i>Concepts</span>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-primary btn-sm" id="downloadConceptTemplateBtn"><i class="bi bi-download me-1"></i>Concept Template</button>
+                <button class="btn btn-outline-primary btn-sm" id="importLearningConceptsBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Concepts</button>
+                <button class="btn btn-outline-primary btn-sm" id="quickImportLearningMcqBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import MCQs</button>
+                <button class="btn btn-outline-primary btn-sm" id="quickImportLearningCodingBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Coding</button>
+                <button class="btn btn-brand btn-sm" id="addConceptBtn"><i class="bi bi-plus-lg me-1"></i>Add Concept</button>
+              </div>
+            </div>
+            <div id="conceptsListWrap" class="list-group list-group-flush"></div>
+          </div>
+
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span class="fw-semibold"><i class="bi bi-list-check me-1"></i>MCQ Questions</span>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-primary btn-sm" id="downloadLearningMcqTemplateBtn"><i class="bi bi-download me-1"></i>Excel Template</button>
+                <button class="btn btn-outline-secondary btn-sm" id="importLearningMcqBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import MCQs</button>
+                <button class="btn btn-brand btn-sm" id="addLearningMcqBtn"><i class="bi bi-plus-lg me-1"></i>Add Question</button>
+              </div>
+            </div>
+            <div id="learningMcqListWrap" class="d-flex flex-column gap-2 p-3"></div>
+          </div>
+
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span class="fw-semibold"><i class="bi bi-code-slash me-1"></i>Coding Questions</span>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-primary btn-sm" id="downloadLearningCodingTemplateBtn"><i class="bi bi-download me-1"></i>Excel Template</button>
+                <button class="btn btn-outline-secondary btn-sm" id="importLearningCodingBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Coding</button>
+                <button class="btn btn-outline-primary btn-sm" id="importCodeforcesBtn"><i class="bi bi-cloud-download me-1"></i>Import from Codeforces</button>
+                <button class="btn btn-brand btn-sm" id="addLearningCodingBtn"><i class="bi bi-plus-lg me-1"></i>Add Question</button>
+              </div>
+            </div>
+            <div id="learningCodingListWrap" class="d-flex flex-column gap-2 p-3"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <span class="fw-semibold"><i class="bi bi-graph-up me-1"></i>Student Progress</span>
+              <select id="learningProgressSectionFilter" class="form-select form-select-sm w-auto">
+                <option value="all">All Sections</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-striped mb-0 align-middle">
+                <thead>
+                  <tr><th>Roll No.</th><th>Name</th><th>Section</th><th>Concepts</th><th>MCQ</th><th>Coding</th></tr>
+                </thead>
+                <tbody id="learningProgressTableBody">
+                  <tr><td colspan="6" class="text-center text-muted py-4">No progress recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===================== SPECIAL SECTION PANE ===================== -->
+      <div class="tab-pane d-none" id="specialPane">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h6 class="mb-0"><i class="bi bi-gem me-1"></i>Special Coding Section</h6>
+            <p class="text-muted small mb-0">Exclusive company-style interview practice questions, unlocked once a student reaches 100 Learning Points.</p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <button class="btn btn-outline-primary btn-sm" id="downloadSpecialCodingTemplateBtn"><i class="bi bi-download me-1"></i>Coding Excel Template</button>
+            <button class="btn btn-outline-secondary btn-sm" id="importSpecialQuestionsBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Excel / PDF</button>
+            <button class="btn btn-outline-primary btn-sm" id="importSpecialBeginnerBtn"><i class="bi bi-cloud-download me-1"></i>Import Beginner DSA</button>
+            <button class="btn btn-brand btn-sm" id="addSpecialQuestionBtn"><i class="bi bi-plus-lg me-1"></i>Add Question</button>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <select id="specialCompanyFilter" class="form-select form-select-sm w-auto">
+            <option value="all">All Companies</option>
+          </select>
+        </div>
+
+        <div id="specialQuestionsList" class="d-flex flex-column gap-2"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- Add/Edit Student Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="studentForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="studentModalTitle">Add Student</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="studentUid" />
+          <div id="studentFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div id="studentCreatedInfo" class="alert alert-success py-2 d-none small"></div>
+
+          <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-control" id="studentNameInput" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Roll Number</label>
+            <input type="text" class="form-control" id="studentRollInput" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Section</label>
+            <select class="form-select" id="studentSectionInput" required></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email (used as login username)</label>
+            <input type="email" class="form-control" id="studentEmailInput" required />
+          </div>
+          <div class="mb-3" id="studentPasswordGroup">
+            <label class="form-label">Password</label>
+            <div class="input-group">
+              <input type="password" class="form-control mono" id="studentPasswordInput" minlength="6" placeholder="Min 6 characters" />
+              <button class="btn btn-outline-secondary" type="button" id="togglePasswordBtn" title="Show/hide"><i class="bi bi-eye"></i></button>
+              <button class="btn btn-outline-secondary" type="button" id="generatePasswordBtn" title="Generate"><i class="bi bi-shuffle"></i></button>
+            </div>
+            <div class="form-text" id="studentPasswordHelp">The student logs in with this email + password.</div>
+          </div>
+          <div class="d-none" id="resetPasswordGroup">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="resetPasswordBtn">
+              <i class="bi bi-envelope me-1"></i>Send Password Reset Email
+            </button>
+            <div class="form-text">Use this if the student needs to set their own new password - editing the field above only updates what's shown in the admin table, it does not change their actual Firebase login by itself.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand" id="studentSubmitBtn">Save Student</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Exam Modal -->
+<div class="modal fade" id="examModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="examForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="examModalTitle">Create Exam</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="examIdInput" />
+          <div id="examFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="mb-3">
+            <label class="form-label">Exam Title</label>
+            <input type="text" class="form-control" id="examTitleInput" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" id="examDescInput" rows="2"></textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Exam Type</label>
+              <select class="form-select" id="examTypeInput">
+                <option value="mcq">MCQ Only</option>
+                <option value="coding">Coding Only (Python)</option>
+                <option value="mixed">Mixed (MCQ + Coding)</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Max Violations</label>
+              <input type="number" min="1" class="form-control" id="examMaxViolationsInput" value="3" required />
+            </div>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col-6">
+              <label class="form-label">Duration (minutes)</label>
+              <input type="number" min="1" class="form-control" id="examDurationInput" required />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Total Marks</label>
+              <input type="number" min="1" class="form-control" id="examMarksInput" required />
+            </div>
+          </div>
+          <div class="form-text mb-1">
+            <i class="bi bi-info-circle me-1"></i>Exam timing is set via <strong>Schedules</strong> (up to 7 date/time slots) after you save this exam - use the calendar icon on the Exams list.
+          </div>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="examActiveInput" checked />
+            <label class="form-check-label" for="examActiveInput">Active (visible to students)</label>
+          </div>
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="examShowResultInput" checked />
+            <label class="form-check-label" for="examShowResultInput">Show score to student after submission</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand" id="examSubmitBtn">Create Exam</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Schedule Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="scheduleForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduleModalTitle">Add Schedule</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="scheduleFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Date</label>
+              <input type="date" class="form-control" id="scheduleDateInput" required />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Start Time</label>
+              <input type="time" class="form-control" id="scheduleTimeInput" required />
+            </div>
+          </div>
+          <div class="form-text mt-2">The exam will be open for its full Duration starting from this date/time.</div>
+
+          <label class="form-label mt-3 mb-1">Sections</label>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="scheduleAllSectionsInput" checked />
+            <label class="form-check-label" for="scheduleAllSectionsInput">All Sections (this slot is open to every section)</label>
+          </div>
+          <div id="scheduleSectionsWrap" class="d-flex flex-wrap gap-3 d-none"></div>
+          <div class="form-text mt-1">Uncheck "All Sections" to restrict this specific time slot to only the sections you select - useful when different sections attend at different times.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand">Save Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MCQ Question Modal -->
+<div class="modal fade" id="mcqModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="mcqForm">
+        <div class="modal-header">
+          <h5 class="modal-title">MCQ Question</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="mcqQuestionId" />
+          <div id="mcqFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="mb-3">
+            <label class="form-label">Question</label>
+            <textarea class="form-control" id="mcqQuestionText" rows="2" required></textarea>
+          </div>
+          <label class="form-label">Options (select the correct one)</label>
+          <div id="mcqOptionsWrap" class="d-flex flex-column gap-2 mb-3"></div>
+          <div class="mb-3">
+            <label class="form-label">Marks</label>
+            <input type="number" min="1" class="form-control" id="mcqMarksInput" required />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand">Save Question</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Coding Question Modal -->
+<div class="modal fade" id="codingModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="codingForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Coding Question</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="codingQuestionId" />
+          <div id="codingFormError" class="alert alert-danger py-2 d-none small"></div>
+
+          <div class="row g-3">
+            <div class="col-md-8">
+              <div class="mb-3">
+                <label class="form-label">Question Title</label>
+                <input type="text" class="form-control" id="codingTitleInput" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Problem Statement</label>
+                <textarea class="form-control" id="codingDescInput" rows="3" required></textarea>
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Input Description</label>
+                  <textarea class="form-control" id="codingInputDescInput" rows="2"></textarea>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Output Description</label>
+                  <textarea class="form-control" id="codingOutputDescInput" rows="2"></textarea>
+                </div>
+              </div>
+              <div class="mb-3 mt-2">
+                <label class="form-label">Constraints</label>
+                <textarea class="form-control" id="codingConstraintsInput" rows="2" placeholder="e.g. 1 <= n <= 10^5"></textarea>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">Difficulty</label>
+                <select class="form-select" id="codingDifficultyInput">
+                  <option value="easy">Easy</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Marks</label>
+                <input type="number" min="1" class="form-control" id="codingMarksInput" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Time Limit (seconds)</label>
+                <input type="number" min="1" class="form-control" id="codingTimeLimitInput" value="5" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Memory Limit (MB)</label>
+                <input type="number" min="16" class="form-control" id="codingMemoryLimitInput" value="256" />
+                <div class="form-text">Stored for reference only - not enforced by in-browser Python execution.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Allowed Languages</label>
+                <div class="form-control bg-light small text-muted">Python (only language currently supported)</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Starter Code (Python)</label>
+            <textarea class="form-control mono" id="codingStarterInput" rows="4" placeholder="a = int(input())&#10;# Write your code here"></textarea>
+          </div>
+
+          <label class="form-label fw-semibold">Sample Input / Output (shown to students)</label>
+          <div id="examplesWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" data-add-row="examplesWrap" data-row-type="example">
+            <i class="bi bi-plus"></i> Add Sample
+          </button>
+
+          <label class="form-label fw-semibold">Public Test Cases (used by "Run Code" and shown to students)</label>
+          <div id="visibleTestsWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" data-add-row="visibleTestsWrap" data-row-type="test">
+            <i class="bi bi-plus"></i> Add Public Test Case
+          </button>
+
+          <label class="form-label fw-semibold">Hidden Test Cases (used only for grading on Submit)</label>
+          <div id="hiddenTestsWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-add-row="hiddenTestsWrap" data-row-type="test">
+            <i class="bi bi-plus"></i> Add Hidden Test Case
+          </button>
+          <div class="form-text mt-2 mb-3">
+            Optional per-test weight lets you make some test cases worth more than others. Leave weight blank to split marks evenly across all test cases.
+          </div>
+
+          <hr />
+          <div class="d-flex gap-2 mb-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="previewQuestionBtn"><i class="bi bi-eye me-1"></i>Preview</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="testRunQuestionBtn"><i class="bi bi-play-circle me-1"></i>Test Run</button>
+          </div>
+          <div id="testRunOutput" class="d-none"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-outline-primary" id="codingSaveDraftBtn" data-publish="false">Save as Draft</button>
+          <button type="submit" class="btn btn-brand" id="codingPublishBtn" data-publish="true">Save &amp; Publish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Question Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Student Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="previewBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- View Code Submissions Modal -->
+<div class="modal fade" id="codeSubmissionsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Code Submission History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="codeSubmissionsBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Level Modal -->
+<div class="modal fade" id="levelModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="levelForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="levelModalTitle">Create Level</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="levelFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-control" id="levelTitleInput" placeholder="e.g. Python Basics" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" id="levelDescInput" rows="2"></textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Order</label>
+              <input type="number" min="0" class="form-control" id="levelOrderInput" value="0" />
+            </div>
+            <div class="col-6">
+              <label class="form-label">MCQ Pass Mark (%)</label>
+              <input type="number" min="1" max="100" class="form-control" id="levelPassMarkInput" value="40" required />
+            </div>
+          </div>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="levelActiveInput" checked />
+            <label class="form-check-label" for="levelActiveInput">Active (visible to students)</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand" id="levelSubmitBtn">Create Level</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Concept Modal -->
+<div class="modal fade" id="conceptModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="conceptForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="conceptModalTitle">Add Concept</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="conceptFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-control" id="conceptTitleInput" placeholder="e.g. Variables" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Content</label>
+            <textarea class="form-control" id="conceptContentInput" rows="8" placeholder="Explain the concept here..." required></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Order (students read concepts in this order)</label>
+            <input type="number" min="0" class="form-control" id="conceptOrderInput" value="0" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand">Save Concept</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Learning MCQ Modal -->
+<div class="modal fade" id="learningMcqModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="learningMcqForm">
+        <div class="modal-header">
+          <h5 class="modal-title">MCQ Question</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="learningMcqFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="mb-3">
+            <label class="form-label">Question</label>
+            <textarea class="form-control" id="lmQuestionText" rows="2" required></textarea>
+          </div>
+          <label class="form-label">Options (select the correct one)</label>
+          <div id="lmOptionsWrap" class="d-flex flex-column gap-2 mb-3"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="lmAddOptionBtn"><i class="bi bi-plus"></i> Add Option</button>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Marks</label>
+              <input type="number" min="1" class="form-control" id="lmMarksInput" required />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Order</label>
+              <input type="number" min="0" class="form-control" id="lmOrderInput" value="0" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand">Save Question</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Learning Coding Question Modal -->
+<!-- Import external coding problems -->
+<div class="modal fade" id="codeforcesImportModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title"><i class="bi bi-cloud-download me-2"></i>Import Codeforces Problems</h5>
+          <div class="text-muted small">Find public Codeforces problems and add them to this learning level without manually entering questions or test cases.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="codeforcesImportError" class="alert alert-danger d-none small"></div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-4">
+            <label class="form-label small">Search title</label>
+            <input id="cfSearchInput" class="form-control" placeholder="e.g. watermelon, array" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Topic / Tag</label>
+            <select id="cfTagInput" class="form-select"><option value="">All tags</option></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Min rating</label>
+            <input id="cfMinRatingInput" type="number" min="0" step="100" class="form-control" placeholder="800" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Max rating</label>
+            <input id="cfMaxRatingInput" type="number" min="0" step="100" class="form-control" placeholder="1600" />
+          </div>
+          <div class="col-md-1 d-flex align-items-end">
+            <button id="cfRefreshBtn" class="btn btn-outline-secondary w-100" title="Fetch latest list"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="small text-muted" id="cfResultInfo">Loading Codeforces problems...</div>
+          <button id="cfSelectVisibleBtn" class="btn btn-sm btn-outline-secondary">Select visible</button>
+        </div>
+        <div id="codeforcesResults" class="d-flex flex-column gap-2"></div>
+      </div>
+      <div class="modal-footer">
+        <span class="small text-muted me-auto" id="cfSelectedInfo">0 selected</span>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-brand" id="cfAddSelectedBtn"><i class="bi bi-plus-lg me-1"></i>Add selected to this level</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="learningCodingModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="learningCodingForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Coding Question</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="learningCodingFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <div class="mb-3">
+                <label class="form-label">Question Title</label>
+                <input type="text" class="form-control" id="lcTitleInput" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Problem Statement</label>
+                <textarea class="form-control" id="lcDescInput" rows="3" required></textarea>
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Input Description</label>
+                  <textarea class="form-control" id="lcInputDescInput" rows="2"></textarea>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Output Description</label>
+                  <textarea class="form-control" id="lcOutputDescInput" rows="2"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">Marks</label>
+                <input type="number" min="1" class="form-control" id="lcMarksInput" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Time Limit (seconds)</label>
+                <input type="number" min="1" class="form-control" id="lcTimeLimitInput" value="5" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Order</label>
+                <input type="number" min="0" class="form-control" id="lcOrderInput" value="0" />
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Starter Code (Python)</label>
+            <textarea class="form-control mono" id="lcStarterInput" rows="4"></textarea>
+          </div>
+
+          <label class="form-label fw-semibold">Sample Input / Output</label>
+          <div id="lcExamplesWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" data-add-row="lcExamplesWrap" data-row-type="example"><i class="bi bi-plus"></i> Add Sample</button>
+
+          <label class="form-label fw-semibold">Public Test Cases</label>
+          <div id="lcVisibleTestsWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" data-add-row="lcVisibleTestsWrap" data-row-type="test"><i class="bi bi-plus"></i> Add Public Test Case</button>
+
+          <label class="form-label fw-semibold">Hidden Test Cases</label>
+          <div id="lcHiddenTestsWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-add-row="lcHiddenTestsWrap" data-row-type="test"><i class="bi bi-plus"></i> Add Hidden Test Case</button>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand">Save Question</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Import beginner DSA problems into Special Section -->
+<div class="modal fade" id="specialBeginnerImportModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title"><i class="bi bi-cloud-download me-2"></i>Import Beginner DSA Problems</h5>
+          <div class="text-muted small">Import one beginner in-site coding problem for each DSA topic. Questions, public tests, and hidden tests are created automatically — students solve everything inside your portal.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="specialBeginnerImportError" class="alert alert-danger d-none small"></div>
+        <div class="alert alert-info small mb-3">
+          <strong>In-site mode:</strong> These beginner problems include starter code, public tests, and hidden tests. Students will not be redirected to another website.
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="small text-muted" id="specialBeginnerInfo">Loading beginner topics...</div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="specialBeginnerSelectAllBtn">Select all</button>
+        </div>
+        <div id="specialBeginnerTopicList" class="d-flex flex-column gap-2"></div>
+      </div>
+      <div class="modal-footer">
+        <span class="small text-muted me-auto" id="specialBeginnerSelectedInfo">0 topics selected</span>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-brand" id="specialBeginnerImportBtn"><i class="bi bi-plus-lg me-1"></i>Import selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Special Coding Question Modal -->
+<div class="modal fade" id="specialModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <form id="specialForm">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-gem me-1"></i>Special Coding Question</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="specialFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <div class="mb-3">
+                <label class="form-label">Question Title</label>
+                <input type="text" class="form-control" id="spTitleInput" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Problem Statement</label>
+                <textarea class="form-control" id="spDescInput" rows="3" required></textarea>
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Input Description</label>
+                  <textarea class="form-control" id="spInputDescInput" rows="2"></textarea>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Output Description</label>
+                  <textarea class="form-control" id="spOutputDescInput" rows="2"></textarea>
+                </div>
+              </div>
+              <div class="mb-3 mt-2">
+                <label class="form-label">Constraints</label>
+                <textarea class="form-control" id="spConstraintsInput" rows="2"></textarea>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">Company</label>
+                <select class="form-select" id="spCompanySelect">
+                  <option value="Google">Google</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Microsoft">Microsoft</option>
+                  <option value="TCS">TCS</option>
+                  <option value="Infosys">Infosys</option>
+                  <option value="Accenture">Accenture</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="mb-3 d-none" id="spCompanyOtherWrap">
+                <label class="form-label">Company Name</label>
+                <input type="text" class="form-control" id="spCompanyOtherInput" placeholder="e.g. Flipkart" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Difficulty</label>
+                <select class="form-select" id="spDifficultyInput">
+                  <option value="easy">Easy</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Marks</label>
+                <input type="number" min="1" class="form-control" id="spMarksInput" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Time Limit (seconds)</label>
+                <input type="number" min="1" class="form-control" id="spTimeLimitInput" value="5" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Order</label>
+                <input type="number" min="0" class="form-control" id="spOrderInput" value="0" />
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Starter Code (Python)</label>
+            <textarea class="form-control mono" id="spStarterInput" rows="4"></textarea>
+          </div>
+
+          <label class="form-label fw-semibold">Sample Input / Output</label>
+          <div id="spExamplesWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" data-add-row="spExamplesWrap" data-row-type="example"><i class="bi bi-plus"></i> Add Sample</button>
+
+          <label class="form-label fw-semibold">Public Test Cases</label>
+          <div id="spVisibleTestsWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-3" data-add-row="spVisibleTestsWrap" data-row-type="test"><i class="bi bi-plus"></i> Add Public Test Case</button>
+
+          <label class="form-label fw-semibold">Hidden Test Cases</label>
+          <div id="spHiddenTestsWrap" class="d-flex flex-column gap-2 mb-2"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-add-row="spHiddenTestsWrap" data-row-type="test"><i class="bi bi-plus"></i> Add Hidden Test Case</button>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-outline-primary" id="specialSaveDraftBtn" data-publish="false">Save as Draft</button>
+          <button type="submit" class="btn btn-brand" id="specialPublishBtn" data-publish="true">Save &amp; Publish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<!-- Pyodide powers the admin "Test Run" button for coding questions -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+
+<!-- ===================== EDIT / ADD STUDENT RESULT MARKS ===================== -->
+<div class="modal fade" id="resultMarksModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="resultMarksForm">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title"><i class="bi bi-pencil-square me-1"></i>Edit Student Marks</h5>
+            <div class="small text-muted" id="resultMarksStudentInfo"></div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="resultMarksFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="alert alert-info py-2 small">
+            Enter the final marks awarded manually. Percentage and PASS/FAIL are calculated automatically from the exam total marks.
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Exam</label>
+            <input class="form-control" id="resultMarksExamInput" readonly>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Marks Obtained</label>
+              <input type="number" class="form-control" id="resultMarksScoreInput" min="0" step="0.01" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Total Marks</label>
+              <input type="number" class="form-control" id="resultMarksTotalInput" min="0.01" step="0.01" required>
+            </div>
+          </div>
+          <div class="mt-3 p-3 rounded bg-light">
+            <div class="d-flex justify-content-between">
+              <span>Calculated Percentage</span>
+              <strong id="resultMarksPercentagePreview">0%</strong>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+              <span>Result</span>
+              <strong id="resultMarksResultPreview">FAIL</strong>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Admin Note <span class="text-muted">(optional)</span></label>
+            <textarea class="form-control" id="resultMarksNoteInput" rows="2" placeholder="Example: Manual correction after re-evaluation"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand" id="saveResultMarksBtn"><i class="bi bi-check2-circle me-1"></i>Save Marks</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Bulk question import modal -->
+<div class="modal fade" id="questionImportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Import Questions from Excel or PDF</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="alert alert-info small"><strong>Excel is recommended.</strong> Download the matching template and fill one question per row. For mixed exams, import the MCQ and Coding templates into the same exam. Special Section accepts coding questions only. PDF import supports text-based PDFs using the labeled format below; scanned PDFs are not supported.</div>
+      <div class="mb-3"><label class="form-label">Question file (.xlsx, .xls, .pdf)</label><input type="file" id="questionImportFile" class="form-control" accept=".xlsx,.xls,.pdf" /></div>
+      <div class="small text-muted mb-3">PDF format: separate questions with <code>---</code>. MCQ fields: <code>TYPE: MCQ</code>, <code>QUESTION:</code>, <code>OPTIONS:</code> (use | between options), <code>ANSWER:</code> (option text or A/B/C/D), <code>MARKS:</code>. Coding fields: <code>TYPE: CODING</code>, <code>TITLE:</code>, <code>DESCRIPTION:</code>, <code>INPUT:</code>, <code>OUTPUT:</code>, <code>CONSTRAINTS:</code>, <code>MARKS:</code>, <code>STARTER_CODE:</code>, <code>EXAMPLES_JSON:</code>, <code>PUBLIC_TESTS_JSON:</code>, <code>HIDDEN_TESTS_JSON:</code>. JSON test fields should be arrays of objects with input and output/expectedOutput properties.</div>
+      <div id="questionImportStatus" class="small"></div><div id="questionImportPreview" class="mt-3"></div>
+    </div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-brand" id="confirmQuestionImportBtn" disabled>Import Questions</button></div>
+  </div></div>
+</div>
+
+<script type="module" src="admin-dashboard.js"></script>
+<script type="module" src="code-visualizations-admin.js"></script>
+</body>
+</html>

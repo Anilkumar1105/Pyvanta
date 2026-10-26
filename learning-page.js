@@ -1,0 +1,753 @@
+// js/learning-page.js
+// Drives learning.html: read concepts in order -> pass the MCQ test ->
+// practice coding questions. No timers/fullscreen/violations here -
+// this is self-paced practice, not a proctored exam.
+
+import { requireRole, wireLogoutButtons } from "./auth.js";
+import {
+  getLevel,
+  listConcepts,
+  listMcqQuestions,
+  listLearningCodingQuestions,
+  getProgress,
+  markConceptComplete,
+  recordMcqAttempt,
+  createLearningCodeSubmission,
+  updateLearningCodeSubmission,
+  listLearningCodeSubmissions,
+  computeConceptStatuses,
+  allConceptsCompleted
+} from "./learning.js";
+import { recordDailyLogin, recordLearningProblemSolved } from "./streak.js";
+import { ensurePyodide, runAllTestCases } from "./python-runner.js";
+import { computeCodingMarks } from "./grading.js";
+import { awardPointsForCompletedQuestion } from "./points.js";
+import { renderCodeVisualizations } from "./code-visualizations.js";
+
+wireLogoutButtons();
+
+const params = new URLSearchParams(window.location.search);
+const levelId = params.get("levelId");
+
+let currentUser = null;
+let level = null;
+let concepts = [];
+let mcqQuestions = [];
+let codingQuestions = [];
+let progress = null;
+let view = { type: "concept", id: null }; // current right-panel view
+let mcqAnswers = {};
+let cmEditor = null;
+
+if (!levelId) window.location.href = "student-dashboard.html";
+
+requireRole("student", async (user) => {
+  currentUser = user;
+  await recordDailyLogin(currentUser.uid).catch((error) => {
+    console.warn("Daily learning login could not be recorded:", error);
+  });
+  await load();
+});
+
+async function load() {
+  level = await getLevel(levelId);
+  const body = document.getElementById("pageBody");
+
+  if (!level || level.active === false) {
+    body.innerHTML = `<div class="alert alert-warning mt-4">This learning level isn't available.</div>`;
+    return;
+  }
+
+  [concepts, mcqQuestions, codingQuestions, progress] = await Promise.all([
+    listConcepts(levelId),
+    listMcqQuestions(levelId),
+    listLearningCodingQuestions(levelId),
+    getProgress(levelId, currentUser.uid)
+  ]);
+
+  body.innerHTML = "";
+  body.appendChild(document.getElementById("tmplLoaded").content.cloneNode(true));
+
+  document.getElementById("levelTitle").textContent = level.title;
+  document.getElementById("levelDesc").textContent = level.description || "";
+
+  view = { type: "concept", id: concepts[0]?.id || null };
+  renderNav();
+  renderContent();
+}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+function renderNav() {
+  const nav = document.getElementById("learningNav");
+  const conceptRows = computeConceptStatuses(concepts, progress);
+  const mcqDone = allConceptsCompleted(concepts, progress);
+  const mcqStatus = progress?.mcqPassed ? "completed" : mcqDone ? "unlocked" : "locked";
+  const codingStatus = progress?.codingUnlocked ? "unlocked" : "locked";
+
+  const items = [
+    ...conceptRows.map((c, i) => ({ kind: "concept", id: c.id, label: `${i + 1}. ${c.title}`, status: c.status })),
+    { kind: "mcq", id: "mcq", label: "MCQ Test", status: mcqStatus },
+    { kind: "coding", id: "coding", label: "Coding Practice", status: codingStatus },
+    { kind: "visualizations", id: "visualizations", label: "Code Visualizations Lab", status: "unlocked" }
+  ];
+
+  nav.innerHTML = items
+    .map((item) => {
+      const icon =
+        item.status === "completed" ? "bi-check-circle-fill text-success" : item.status === "locked" ? "bi-lock-fill text-muted" : "bi-unlock-fill text-primary";
+      const active = view.type === item.kind && (item.kind !== "concept" || view.id === item.id);
+      const disabled = item.status === "locked";
+      return `
+        <button type="button" class="btn btn-sm text-start learning-nav-item ${active ? "active" : ""} ${disabled ? "disabled" : ""}"
+          data-kind="${item.kind}" data-id="${item.id}" ${disabled ? "disabled" : ""}>
+          <i class="bi ${icon} me-2"></i>${item.label}
+        </button>`;
+    })
+    .join("");
+
+  nav.querySelectorAll("[data-kind]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      view = { type: btn.dataset.kind, id: btn.dataset.id };
+      renderNav();
+      renderContent();
+    });
+  });
+}
+
+/* ============================================================
+   CONTENT ROUTER
+   ============================================================ */
+function renderContent() {
+  const content = document.getElementById("learningContent");
+  if (view.type === "concept") return renderConcept(content);
+  if (view.type === "mcq") return renderMcq(content);
+  if (view.type === "coding") return renderCodingList(content);
+  if (view.type === "codingQuestion") return renderCodingQuestion(content);
+  if (view.type === "visualizations") return renderVisualizations(content);
+}
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function completedQuestionKey(section, questionId) {
+  return `completedCodingQuestions:${section}:${currentUser?.uid || "guest"}`;
+}
+function isCodingQuestionCompleted(section, questionId) {
+  try { return JSON.parse(localStorage.getItem(completedQuestionKey(section, questionId)) || "[]").includes(questionId); }
+  catch { return false; }
+}
+function markCodingQuestionCompleted(section, questionId) {
+  try {
+    const key = completedQuestionKey(section, questionId);
+    const completed = new Set(JSON.parse(localStorage.getItem(key) || "[]"));
+    completed.add(questionId);
+    localStorage.setItem(key, JSON.stringify([...completed]));
+  } catch (err) { console.warn("Could not save question completion status", err); }
+}
+
+/* ---------- Interactive Code Visualizations ---------- */
+function renderVisualizations(content) {
+  renderCodeVisualizations(content);
+}
+
+/* ---------- Concepts ---------- */
+function renderConcept(content) {
+  const concept = concepts.find((c) => c.id === view.id);
+  if (!concept) {
+    content.innerHTML = `<p class="text-muted">Select a concept from the left to begin.</p>`;
+    return;
+  }
+  const statuses = computeConceptStatuses(concepts, progress);
+  const status = statuses.find((c) => c.id === concept.id)?.status;
+  const index = concepts.findIndex((c) => c.id === concept.id);
+  const isLast = index === concepts.length - 1;
+
+  content.innerHTML = `
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <h5 class="mb-0">${escapeHtml(concept.title)}</h5>
+      ${status === "completed" ? '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Completed</span>' : ""}
+    </div>
+    <div class="concept-content mb-4">${escapeHtml(concept.content).replace(/\n/g, "<br>")}</div>
+    <div id="conceptActionArea"></div>
+  `;
+
+  const actionArea = document.getElementById("conceptActionArea");
+  if (status === "completed") {
+    const next = concepts[index + 1];
+    if (next) {
+      const btn = document.createElement("button");
+      btn.className = "btn btn-brand";
+      btn.innerHTML = `Next: ${escapeHtml(next.title)} <i class="bi bi-arrow-right ms-1"></i>`;
+      btn.addEventListener("click", () => {
+        view = { type: "concept", id: next.id };
+        renderNav();
+        renderContent();
+      });
+      actionArea.appendChild(btn);
+    } else {
+      actionArea.innerHTML = `<div class="alert alert-success mb-0"><i class="bi bi-stars me-1"></i>All concepts completed! The MCQ Test is now unlocked.</div>`;
+    }
+  } else {
+    const btn = document.createElement("button");
+    btn.className = "btn btn-brand";
+    btn.innerHTML = isLast
+      ? `Mark Complete <i class="bi bi-check-lg ms-1"></i>`
+      : `Mark Complete &amp; Continue <i class="bi bi-arrow-right ms-1"></i>`;
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      progress = await markConceptComplete(
+        levelId,
+        currentUser.uid,
+        concept.id,
+        concepts.map((c) => c.id)
+      );
+      const next = concepts[index + 1];
+      view = next ? { type: "concept", id: next.id } : { type: "concept", id: concept.id };
+      renderNav();
+      renderContent();
+    });
+    actionArea.appendChild(btn);
+  }
+}
+
+/* ---------- MCQ Test ---------- */
+function renderMcq(content) {
+  const mcqDone = allConceptsCompleted(concepts, progress);
+  if (!mcqDone) {
+    content.innerHTML = `<div class="alert alert-secondary mb-0"><i class="bi bi-lock-fill me-1"></i>Complete every concept first to unlock the MCQ test.</div>`;
+    return;
+  }
+  if (!mcqQuestions.length) {
+    content.innerHTML = `<div class="text-muted">No MCQ questions have been added for this level yet.</div>`;
+    return;
+  }
+
+  if (progress?.mcqPassed) {
+    renderMcqResult(content, {
+      passed: true,
+      score: progress.mcqScore,
+      total: progress.mcqTotal,
+      percentage: progress.mcqPercentage,
+      answers: progress.mcqAnswers || {}
+    });
+    return;
+  }
+
+  renderMcqForm(content);
+}
+
+/**
+ * Renders the actual quiz form. Split out from renderMcq() so the
+ * Retake button can call this directly - renderMcq() itself always
+ * redirects straight to the result screen once progress.mcqPassed is
+ * true, which would otherwise make "Retake" loop back to the result
+ * instead of showing fresh questions.
+ */
+function renderMcqForm(content) {
+  mcqAnswers = {};
+  content.innerHTML = `
+    <h5 class="mb-3"><i class="bi bi-list-check me-1"></i>MCQ Test</h5>
+    <p class="text-muted small">Pass mark: ${level.passMark ?? 40}%. You can retake this test any time.</p>
+    <div id="mcqQuestionsWrap" class="d-flex flex-column gap-4 mb-3"></div>
+    <button class="btn btn-brand" id="submitMcqBtn"><i class="bi bi-send-check me-1"></i>Submit Test</button>
+  `;
+
+  const wrap = document.getElementById("mcqQuestionsWrap");
+  mcqQuestions.forEach((q, qi) => {
+    const block = document.createElement("div");
+    block.innerHTML = `<div class="fw-semibold mb-2">${qi + 1}. ${escapeHtml(q.questionText)}</div>`;
+    const optWrap = document.createElement("div");
+    optWrap.className = "d-flex flex-column gap-2";
+    q.options.forEach((opt, oi) => {
+      const div = document.createElement("div");
+      div.className = "mcq-option";
+      div.innerHTML = `<input type="radio" name="mcq_${q.id}" /> <span>${escapeHtml(opt)}</span>`;
+      div.addEventListener("click", () => {
+        mcqAnswers[q.id] = oi;
+        [...optWrap.children].forEach((c) => c.classList.remove("selected"));
+        div.classList.add("selected");
+        div.querySelector("input").checked = true;
+      });
+      optWrap.appendChild(div);
+    });
+    block.appendChild(optWrap);
+    wrap.appendChild(block);
+  });
+
+  document.getElementById("submitMcqBtn").addEventListener("click", async () => {
+    const total = mcqQuestions.reduce((sum, q) => sum + (q.marks || 0), 0);
+    const score = mcqQuestions.reduce((sum, q) => sum + (mcqAnswers[q.id] === q.correctOptionIndex ? q.marks || 0 : 0), 0);
+    const percentage = total ? Math.round((score / total) * 10000) / 100 : 0;
+    const passed = percentage >= (level.passMark ?? 40);
+
+    await recordMcqAttempt(levelId, currentUser.uid, { score, total, percentage, passed, answers: mcqAnswers });
+    progress = await getProgress(levelId, currentUser.uid);
+    renderNav();
+    renderMcqResult(content, { passed, score, total, percentage, answers: mcqAnswers });
+  });
+}
+
+function renderMcqResult(content, { passed, score, total, percentage, answers = {} }) {
+  content.innerHTML = `
+    <div class="text-center py-3">
+      <div class="result-badge-icon ${passed ? "pass" : "fail"} mx-auto mb-3">
+        <i class="bi ${passed ? "bi-trophy-fill" : "bi-x-lg"}"></i>
+      </div>
+      <span class="badge ${passed ? "bg-success" : "bg-danger"} fs-6 px-3 py-2 mb-2">
+        <i class="bi ${passed ? "bi-check-circle-fill" : "bi-x-circle-fill"} me-1"></i>${passed ? "PASSED" : "NOT YET PASSED"}
+      </span>
+      <div class="display-6 fw-bold mt-2">${score} <span class="fs-5 text-muted fw-normal">/ ${total}</span></div>
+      <div class="text-muted mb-3">${percentage}% \u00b7 Pass mark: ${level.passMark ?? 40}%</div>
+      ${passed ? `<div class="alert alert-success mb-3"><i class="bi bi-unlock-fill me-1"></i>Coding Practice is now unlocked.</div>` : ""}
+      <div class="d-flex justify-content-center gap-2 mb-3">
+        <button class="btn btn-outline-secondary btn-sm" id="reviewMcqBtn"><i class="bi bi-clipboard-check me-1"></i>Review Answers</button>
+        <button class="btn btn-brand btn-sm" id="retakeMcqBtn"><i class="bi bi-arrow-repeat me-1"></i>Retake Test</button>
+      </div>
+      <div id="mcqReviewWrap" class="text-start"></div>
+    </div>
+  `;
+  document.getElementById("retakeMcqBtn").addEventListener("click", () => renderMcqForm(content));
+  document.getElementById("reviewMcqBtn").addEventListener("click", (e) => {
+    const wrap = document.getElementById("mcqReviewWrap");
+    const showing = wrap.dataset.shown === "true";
+    if (showing) {
+      wrap.innerHTML = "";
+      wrap.dataset.shown = "false";
+      e.currentTarget.innerHTML = '<i class="bi bi-clipboard-check me-1"></i>Review Answers';
+    } else {
+      wrap.innerHTML = buildMcqReviewHtml(answers);
+      wrap.dataset.shown = "true";
+      e.currentTarget.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Review';
+    }
+  });
+}
+
+function buildMcqReviewHtml(answers) {
+  return mcqQuestions
+    .map((q, i) => {
+      const selected = answers[q.id];
+      const correct = q.correctOptionIndex;
+      const wasCorrect = selected === correct;
+      const yourAnswerText = selected != null ? escapeHtml(q.options[selected]) : "Not answered";
+      const correctAnswerText = escapeHtml(q.options[correct]);
+
+      const optionsHtml = q.options
+        .map((opt, oi) => {
+          let cls = "text-muted";
+          let icon = '<i class="bi bi-circle text-muted me-1"></i>';
+          if (oi === correct) {
+            cls = "text-success fw-semibold";
+            icon = '<i class="bi bi-check-circle-fill me-1"></i>';
+          } else if (oi === selected) {
+            cls = "text-danger fw-semibold";
+            icon = '<i class="bi bi-x-circle-fill me-1"></i>';
+          }
+          return `<div class="${cls}">${icon}${escapeHtml(opt)}</div>`;
+        })
+        .join("");
+
+      return `
+        <div class="mcq-review-item ${wasCorrect ? "correct" : "incorrect"} mb-2">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="fw-semibold small">${i + 1}. ${escapeHtml(q.questionText)}</div>
+            <span class="badge ${wasCorrect ? "bg-success" : "bg-danger"} ms-2 flex-shrink-0">
+              <i class="bi ${wasCorrect ? "bi-check-lg" : "bi-x-lg"}"></i>
+            </span>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <div class="mcq-answer-box ${wasCorrect ? "correct" : "incorrect"}">
+                <div class="mcq-answer-label">Your Answer</div>
+                <div class="mcq-answer-value">${yourAnswerText}</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="mcq-answer-box correct">
+                <div class="mcq-answer-label">Correct Answer</div>
+                <div class="mcq-answer-value">${correctAnswerText}</div>
+              </div>
+            </div>
+          </div>
+          <div class="small d-flex flex-column gap-1">${optionsHtml}</div>
+        </div>`;
+    })
+    .join("");
+}
+
+/* ---------- Coding Practice ---------- */
+function renderCodingList(content) {
+  if (!progress?.codingUnlocked) {
+    content.innerHTML = `<div class="alert alert-secondary mb-0"><i class="bi bi-lock-fill me-1"></i>Pass the MCQ test first to unlock coding practice.</div>`;
+    return;
+  }
+  if (!codingQuestions.length) {
+    content.innerHTML = `<div class="text-muted">No coding questions have been added for this level yet.</div>`;
+    return;
+  }
+
+  content.innerHTML = `<h5 class="mb-3"><i class="bi bi-code-slash me-1"></i>Coding Practice</h5><div id="codingListWrap" class="d-flex flex-column gap-2"></div>`;
+  const wrap = document.getElementById("codingListWrap");
+
+  wrap.innerHTML = codingQuestions
+    .map(
+      (q, i) => `
+      <div class="question-card p-3 d-flex justify-content-between align-items-center gap-3">
+        <div class="min-w-0">
+          <span class="badge bg-secondary me-2">Q${i + 1}</span>
+          <strong>${escapeHtml(q.title)}</strong>
+          <div class="text-muted small mt-1">
+            ${q.external ? `<span class="badge bg-primary-subtle text-primary me-1">${escapeHtml(q.source || "External")}</span>${q.difficulty ? escapeHtml(q.difficulty) : ""}${q.rating ? ` &middot; Rating ${escapeHtml(q.rating)}` : ""}` : `${q.marks} marks`}
+          </div>
+        </div>
+        ${q.external ? `<a class="btn btn-sm btn-brand" href="${escapeHtml(q.externalUrl)}" target="_blank" rel="noopener noreferrer">Open Problem <i class="bi bi-box-arrow-up-right ms-1"></i></a>` : `<button class="btn btn-sm btn-brand" data-open-question="${q.id}">Practice <i class="bi bi-arrow-right ms-1"></i></button>`}
+      </div>`
+    )
+    .join("");
+
+  wrap.querySelectorAll("[data-open-question]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      view = { type: "codingQuestion", id: btn.dataset.openQuestion };
+      renderNav();
+      renderContent();
+    });
+  });
+}
+
+function renderCodingQuestion(content) {
+  const q = codingQuestions.find((x) => x.id === view.id);
+  if (q?.external) {
+    content.innerHTML = `<div class="text-center py-4"><div class="display-6 mb-2"><i class="bi bi-box-arrow-up-right"></i></div><h5>${escapeHtml(q.title)}</h5><p class="text-muted">This problem is hosted on ${escapeHtml(q.source || "the external platform")}.</p><a class="btn btn-brand" href="${escapeHtml(q.externalUrl)}" target="_blank" rel="noopener noreferrer">Open Problem <i class="bi bi-box-arrow-up-right ms-1"></i></a></div>`;
+    return;
+  }
+  if (!q) {
+    content.innerHTML = `<p class="text-muted">Question not found.</p>`;
+    return;
+  }
+
+  const samplesHtml = (q.examples || [])
+    .map(
+      (ex, i) => `
+      <section class="sample-case mb-3">
+        <div class="sample-case-title">Sample ${i + 1}</div>
+        <div class="sample-io-block">
+          <div class="sample-io-label">Input</div>
+          <pre class="sample-io-value">${escapeHtml(ex.input || "")}</pre>
+        </div>
+        <div class="sample-io-block">
+          <div class="sample-io-label">Expected Output</div>
+          <pre class="sample-io-value">${escapeHtml(ex.output || "")}</pre>
+        </div>
+      </section>`
+    )
+    .join("");
+
+  content.innerHTML = `
+    <button class="btn btn-sm btn-outline-secondary mb-3" id="backToCodingListBtn"><i class="bi bi-arrow-left me-1"></i>Back to list</button>
+    <div class="row g-3">
+      <div class="col-lg-5">
+        <h5 class="mb-2">${escapeHtml(q.title)}</h5>
+        <p class="preserve-lines">${escapeHtml(q.description || "")}</p>
+        ${q.inputDescription ? `<p class="small preserve-lines"><strong>Input:</strong> ${escapeHtml(q.inputDescription)}</p>` : ""}
+        ${q.outputDescription ? `<p class="small preserve-lines"><strong>Output:</strong> ${escapeHtml(q.outputDescription)}</p>` : ""}
+        ${q.constraints ? `<p class="small text-muted preserve-lines"><strong>Constraints:</strong> ${escapeHtml(q.constraints)}</p>` : ""}
+        ${samplesHtml}
+        <div id="learningSubmissionHistory" class="mt-3"></div>
+      </div>
+      <div class="col-lg-7">
+        <textarea id="learningCodeEditor">${escapeHtml(q.starterCode || "")}</textarea>
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <button class="btn btn-outline-secondary btn-sm" id="learningRunBtn"><i class="bi bi-play-fill me-1"></i>Run Code</button>
+          <button class="btn btn-brand btn-sm" id="learningSubmitBtn"><i class="bi bi-cloud-arrow-up me-1"></i>Submit Code</button>
+          <span class="python-status" id="learningPythonStatus"></span>
+        </div>
+        <div id="learningTestResults" class="d-flex flex-column gap-2 mt-3"></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("backToCodingListBtn").addEventListener("click", () => {
+    view = { type: "coding", id: "coding" };
+    renderNav();
+    renderContent();
+  });
+
+  cmEditor = CodeMirror.fromTextArea(document.getElementById("learningCodeEditor"), {
+    mode: "python",
+    lineNumbers: true,
+    indentUnit: 4,
+    tabSize: 4,
+    matchBrackets: true,
+    theme: "dracula",
+    viewportMargin: Infinity
+  });
+  cmEditor.setSize("100%", "300px");
+  blockPaste(cmEditor);
+
+  document.getElementById("learningRunBtn").addEventListener("click", () => runVisible(q));
+  document.getElementById("learningSubmitBtn").addEventListener("click", () => submitPractice(q));
+  renderLearningHistory(q.id);
+}
+
+/**
+ * Disables pasting into a CodeMirror editor (Ctrl/Cmd+V, right-click
+ * paste, and the Edit menu) so students have to type their own code in
+ * the Learning Section's practice editor instead of pasting an answer
+ * in from elsewhere. Typing, Run, and Submit all still work normally -
+ * only paste is blocked.
+ */
+function blockPaste(editor) {
+  const wrapper = editor.getWrapperElement();
+  wrapper.addEventListener("paste", (e) => {
+    e.preventDefault();
+    showPasteBlockedToast();
+  });
+  editor.setOption("extraKeys", {
+    ...(editor.getOption("extraKeys") || {}),
+    "Ctrl-V": () => showPasteBlockedToast(),
+    "Cmd-V": () => showPasteBlockedToast(),
+    "Shift-Ctrl-V": () => showPasteBlockedToast(),
+    "Shift-Insert": () => showPasteBlockedToast()
+  });
+}
+
+function showPasteBlockedToast() {
+  const existing = document.querySelector(".paste-blocked-toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.className = "paste-blocked-toast";
+  toast.innerHTML = `<i class="bi bi-clipboard-x me-1"></i>Pasting is disabled here - please type your code.`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add("paste-blocked-toast-out"), 1800);
+  setTimeout(() => toast.remove(), 2200);
+}
+
+async function runVisible(q) {
+  const statusEl = document.getElementById("learningPythonStatus");
+  const resultsEl = document.getElementById("learningTestResults");
+  statusEl.textContent = "Running Python...";
+  resultsEl.innerHTML = "";
+  try {
+    const pyodide = await ensurePyodide();
+    const results = await runAllTestCases(pyodide, cmEditor.getValue(), q.visibleTestCases || [], (q.timeLimit || 5) * 1000);
+    statusEl.textContent = `${results.filter((r) => r.passed).length} / ${results.length} public test cases passed`;
+    resultsEl.innerHTML = results
+      .map(
+        (r, i) => `
+        <div class="testcase-result ${r.passed ? "pass" : "fail"}">
+          <div><strong>Test ${i + 1}: ${r.passed ? "PASSED" : "FAILED"}</strong> \u00b7 ${r.executionTimeMs} ms</div>
+          <div><strong>Input:</strong><pre class="testcase-value">${escapeHtml(r.input || "(empty input)")}</pre></div>
+          <div><strong>Expected Output:</strong><pre class="testcase-value">${escapeHtml(r.expectedOutput ?? "")}</pre></div>
+          <div><strong>Your Output:</strong><pre class="testcase-value">${escapeHtml(r.actualOutput ?? "")}</pre></div>
+          ${r.errorMessage ? `<div>Error: ${escapeHtml(r.errorMessage)}</div>` : ""}
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    statusEl.textContent = "Could not run Python in this browser.";
+  }
+}
+
+async function submitPractice(q) {
+  const statusEl = document.getElementById("learningPythonStatus");
+  const resultsEl = document.getElementById("learningTestResults");
+  const submitBtn = document.getElementById("learningSubmitBtn");
+
+  // Prevent double-clicks / duplicate submissions while grading.
+  if (submitBtn.disabled) return;
+  submitBtn.disabled = true;
+  statusEl.textContent = "Saving your submission...";
+  resultsEl.innerHTML = "";
+
+  const sourceCode = cmEditor.getValue();
+  const allTests = [...(q.visibleTestCases || []), ...(q.hiddenTestCases || [])];
+  const draftKey = `learningSubmissionDraft:${currentUser.uid}:${levelId}:${q.id}`;
+  const draft = {
+    studentId: currentUser.uid,
+    levelId,
+    questionId: q.id,
+    sourceCode,
+    savedAt: new Date().toISOString()
+  };
+
+  // Keep a local backup so a temporary Firebase/browser failure does not
+  // destroy the student's typed solution.
+  try { localStorage.setItem(draftKey, JSON.stringify(draft)); } catch (_) {}
+
+  let submissionId = null;
+  let finalStatusMessage = "";
+
+  try {
+    // IMPORTANT: create the submission BEFORE running Pyodide. This gives
+    // us a durable record even if grading later times out or the browser has
+    // a transient failure.
+    submissionId = await createLearningCodeSubmission({
+      studentId: currentUser.uid,
+      levelId,
+      questionId: q.id,
+      language: "python",
+      sourceCode,
+      executionStatus: "processing",
+      testCasesPassed: 0,
+      totalTestCases: allTests.length,
+      marksObtained: 0,
+      executionTimeMs: 0,
+      errorMessage: null
+    });
+
+    statusEl.textContent = "Submitting and grading...";
+
+    const pyodide = await ensurePyodide();
+    const results = await runAllTestCases(
+      pyodide,
+      sourceCode,
+      allTests,
+      (q.timeLimit || 5) * 1000
+    );
+
+    const passedCount = results.filter((r) => r.passed).length;
+    const marksObtained = computeCodingMarks(q.marks, results);
+    const totalExecutionTimeMs = results.reduce((sum, r) => sum + (r.executionTimeMs || 0), 0);
+    const hadError = results.some((r) => r.executionStatus === "error" || r.executionStatus === "timeout");
+    const executionStatus = hadError ? "error" : "completed";
+    const errorMessage = results.find((r) => r.errorMessage)?.errorMessage || null;
+
+    await updateLearningCodeSubmission(submissionId, {
+      executionStatus,
+      testCasesPassed: passedCount,
+      totalTestCases: allTests.length,
+      marksObtained,
+      executionTimeMs: totalExecutionTimeMs,
+      errorMessage
+    });
+
+    if (allTests.length && passedCount === allTests.length) {
+      markCodingQuestionCompleted("learning", q.id);
+      const [pointsResult, streakResult] = await Promise.allSettled([
+        awardPointsForCompletedQuestion(currentUser.uid, q.id),
+        recordLearningProblemSolved(currentUser.uid, q.id)
+      ]);
+
+      const messages = [];
+      if (pointsResult.status === "fulfilled") {
+        const { awarded, points } = pointsResult.value;
+        if (awarded) showPointsToast(points);
+      } else {
+        console.error("Learning Points could not be saved:", pointsResult.reason);
+        messages.push("Points save failed — please submit this solved question again.");
+      }
+
+      if (streakResult.status === "rejected") {
+        console.error("Learning streak could not be saved:", streakResult.reason);
+        messages.push("Streak save failed — please submit again.");
+      }
+      finalStatusMessage = messages.length ? ` · ${messages.join(" · ")}` : "";
+    }
+
+    statusEl.textContent = `Submitted: ${passedCount} / ${allTests.length} test cases passed · ${marksObtained} / ${q.marks} marks${finalStatusMessage}`;
+    const publicCount = (q.visibleTestCases || []).length;
+    if (allTests.length > 0 && passedCount === allTests.length) {
+      resultsEl.innerHTML = `<div class="testcase-result pass"><strong>✓ All test cases passed!</strong><div>${passedCount} / ${allTests.length} test cases passed.</div></div>`;
+    } else {
+      resultsEl.innerHTML = results.map((r, i) => {
+        if (r.passed) return "";
+        const isHidden = i >= publicCount;
+        return `<div class="testcase-result fail">
+          <strong>${isHidden ? "Hidden test" : "Public test"} ${isHidden ? i - publicCount + 1 : i + 1}: FAILED</strong>
+          ${r.executionStatus ? ` &middot; ${r.executionStatus}` : ""}${r.executionTimeMs != null ? ` &middot; ${r.executionTimeMs} ms` : ""}
+          <div><strong>Input:</strong><pre class="testcase-value">${escapeHtml(r.input || "(empty input)")}</pre></div>
+          <div><strong>Expected Output:</strong><pre class="testcase-value">${escapeHtml(r.expectedOutput ?? "")}</pre></div>
+          <div><strong>Your Output:</strong><pre class="testcase-value">${escapeHtml(r.actualOutput ?? "")}</pre></div>
+          ${r.errorMessage ? `<div><strong>Error:</strong><pre class="testcase-value">${escapeHtml(r.errorMessage)}</pre></div>` : ""}
+        </div>`;
+      }).join("");
+      if (!results.some((r) => !r.passed)) {
+        resultsEl.innerHTML = `<div class="testcase-result fail">No test cases passed. Please review your code and try again.</div>`;
+      }
+    }
+
+    try { localStorage.removeItem(draftKey); } catch (_) {}
+    renderLearningHistory(q.id);
+  } catch (err) {
+    console.error("Learning code submission failed:", err);
+
+    // If the submission was created, leave a visible processing/error record
+    // rather than pretending that nothing was submitted.
+    if (submissionId) {
+      try {
+        await updateLearningCodeSubmission(submissionId, {
+          executionStatus: "error",
+          errorMessage: String(err?.message || err || "Submission failed")
+        });
+      } catch (updateError) {
+        console.error("Could not update failed submission record:", updateError);
+      }
+    }
+
+    statusEl.textContent = submissionId
+      ? "Your code was saved, but grading failed. Please try Submit again."
+      : "Could not save your submission. Your code is kept in this browser — please check your connection and submit again.";
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+async function renderLearningHistory(questionId) {
+  const wrap = document.getElementById("learningSubmissionHistory");
+  if (!wrap || !currentUser?.uid) return;
+
+  // Keep the history visible while Firebase returns the latest records.
+  wrap.innerHTML = `<div class="small fw-semibold mb-1">Your Submissions</div><div class="small text-muted">Loading submissions...</div>`;
+  try {
+    const history = await listLearningCodeSubmissions(currentUser.uid, questionId);
+    // The student may have navigated to another question while this request was pending.
+    if (!wrap.isConnected || document.getElementById("learningSubmissionHistory") !== wrap) return;
+    if (!history.length) {
+      wrap.innerHTML = `<div class="small fw-semibold mb-1">Your Submissions</div><div class="small text-muted">No submissions yet for this question.</div>`;
+      return;
+    }
+    wrap.innerHTML =
+      `<div class="small fw-semibold mb-1">Your Submissions</div>` +
+      history
+        .map((submission) => {
+          const passed = Number(submission.testCasesPassed) || 0;
+          const total = Number(submission.totalTestCases) || 0;
+          const marks = Number(submission.marksObtained) || 0;
+          const isComplete = total > 0 && passed === total;
+          const status = submission.executionStatus === "processing"
+            ? "Grading..."
+            : submission.executionStatus === "error"
+              ? "Error"
+              : isComplete ? "All passed" : "In progress";
+          return `
+            <div class="learning-submission-row small d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom py-2">
+              <span>${submission.submittedAt ? new Date(submission.submittedAt).toLocaleTimeString() : "Just now"}</span>
+              <span class="${isComplete ? "text-success" : "text-muted"}">${passed}/${total} passed</span>
+              <span>${marks} marks</span>
+              <span class="${isComplete ? "text-success" : "text-muted"}">${status}</span>
+            </div>`;
+        })
+        .join("");
+  } catch (error) {
+    console.error("Could not load learning submission history:", error);
+    if (wrap.isConnected) {
+      wrap.innerHTML = `<div class="small fw-semibold mb-1">Your Submissions</div><div class="small text-danger">Unable to load submission history. Please refresh or try again.</div>`;
+    }
+  }
+}
+
+/** Small floating "+2 Points!" celebration, shown once per newly-completed question. */
+function showPointsToast(totalPoints) {
+  const toast = document.createElement("div");
+  toast.className = "points-toast";
+  toast.innerHTML = `<i class="bi bi-stars me-1"></i>+2 Points! <span class="points-toast-total">(${totalPoints} total)</span>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add("points-toast-out"), 2200);
+  setTimeout(() => toast.remove(), 2700);
+}
