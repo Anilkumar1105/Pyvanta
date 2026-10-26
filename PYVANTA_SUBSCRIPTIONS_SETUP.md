@@ -23,3 +23,16 @@
 - The student can submit their own request, but only admins can write subscription activation documents. Review the Firestore rules carefully before deployment.
 - This update does not delete existing users, exam submissions, points, streaks, or learning progress. Existing students without a subscription will be asked to subscribe when opening premium pages. Their dashboard/history remains accessible.
 - A frontend subscription gate is a useful UI access control, but any future server APIs must independently validate subscription status.
+
+
+## Admin navigation and approval email
+
+- The Admin Dashboard sidebar now has separate **Payment Requests** and **Subscribed Users** links.
+- The admin top bar uses the midnight-charcoal theme instead of a white background.
+- On approval, the portal queues a confirmation message in Firestore's `mail` collection. The message confirms the plan name, amount, expiry date, and how to upgrade/extend.
+
+### Required email delivery setup
+
+Queueing a document does not send an email by itself. In Firebase Console, install/configure the official **Trigger Email from Firestore** extension and connect a real SMTP provider. Configure it to watch the `mail` collection and verify the sender domain/address. Deploy the updated `firestore.rules` so only admins can enqueue email messages. Test with a real test account before production. If the extension is not installed/configured or the admin role rules block writes, the subscription will still activate but the UI will warn that email could not be queued.
+
+Do not put SMTP passwords or email-provider secrets in frontend JavaScript or GitHub Pages.

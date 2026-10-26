@@ -288,5 +288,14 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isAdmin();
     }
+
+
+    // mail/{mailId}: admin-only enqueue for Firebase Trigger Email extension.
+    // Configure the extension to watch the `mail` collection and connect a
+    // verified SMTP provider. The extension sends queued messages server-side.
+    match /mail/{mailId} {
+      allow create: if isAdmin();
+      allow read, update, delete: if false;
+    }
   }
 }
