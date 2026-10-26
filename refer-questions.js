@@ -600,13 +600,15 @@ async function renderSubmissionHistory(questionId) {
 /* ============================================================
    SUBMIT EXAM (final)
    ============================================================ */
-document.getElementById("submitExamBtn").addEventListener("click", () => {
-  new bootstrap.Modal(document.getElementById("submitConfirmModal")).show();
+document.getElementById("submitExamBtn")?.addEventListener("click", () => {
+  const modalEl = document.getElementById("submitConfirmModal");
+  if (modalEl && window.bootstrap?.Modal) new bootstrap.Modal(modalEl).show();
 });
 
-document.getElementById("confirmSubmitBtn").addEventListener("click", () => {
-  bootstrap.Modal.getInstance(document.getElementById("submitConfirmModal"))?.hide();
-  handleSubmit("submitted");
+document.getElementById("confirmSubmitBtn")?.addEventListener("click", () => {
+  const modalEl = document.getElementById("submitConfirmModal");
+  if (modalEl && window.bootstrap?.Modal) bootstrap.Modal.getInstance(modalEl)?.hide();
+  if (typeof handleSubmit === "function") handleSubmit("submitted");
 });
 
 async function handleSubmit(status, message) {

@@ -287,6 +287,7 @@ href="./favicon.svg">
   let examById = {};
   let schedulesByExamId = {};
   let currentUser = null;
+  let activeExams = [];
 
   requireRole("student", async (user, profile) => {
     currentUser = user;
@@ -296,11 +297,12 @@ href="./favicon.svg">
     document.getElementById("profileRoll").textContent = profile.rollNumber;
     document.getElementById("profileSection").textContent = profile.section;
 
-    const [activeExams, submissions, learningProgress] = await Promise.all([
+    const [loadedActiveExams, submissions, learningProgress] = await Promise.all([
       listActiveExams(),
       getStudentSubmissions(user.uid),
       listProgressForStudent(user.uid)
     ]);
+    activeExams = loadedActiveExams;
 
     const activeExamIds = new Set(activeExams.map((e) => e.id));
     const extraExamIds = submissions
