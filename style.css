@@ -707,10 +707,11 @@ body.learning-body {
 
 .concept-content {
   line-height: 1.75;
-  color: #374151;
+  color: #E5E7EB;
   font-size: 1.02rem;
-  background: linear-gradient(180deg, #faf9ff 0%, #ffffff 100%);
-  border-left: 4px solid #7c3aed;
+  background: #151923;
+  border: 1px solid #2B3140;
+  border-left: 4px solid #8B5CF6;
   border-radius: 0.6rem;
   padding: 1.25rem 1.5rem;
 }
