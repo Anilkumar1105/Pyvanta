@@ -57,6 +57,21 @@ href="./favicon.svg">
     </div>
   </a>
 
+  <section id="starterPointsRules" class="starter-points-rules mb-4 d-none" aria-live="polite">
+    <div class="starter-points-rules-icon"><i class="bi bi-info-circle-fill"></i></div>
+    <div class="starter-points-rules-content">
+      <h6>Starter Plan: How to unlock the Special Coding Section</h6>
+      <p>Earn <strong>150 Learning Points</strong> by completing regular Learning Section coding questions.</p>
+      <ul>
+        <li><strong>2 points</strong> for each coding question you solve successfully with all test cases passed.</li>
+        <li>You need to complete <strong>75 different coding questions</strong> to earn 150 points.</li>
+        <li>Only the first successful completion of each question earns points. Re-submitting the same question does not add points again.</li>
+        <li>MCQ tests, opening a question, or running code without passing all test cases do not earn these Learning Points.</li>
+      </ul>
+      <div class="starter-points-tip"><i class="bi bi-lightbulb-fill me-1"></i>Track your progress in the Learning Points card above. The Special Coding Section unlocks automatically when you reach 150 points.</div>
+    </div>
+  </section>
+
   <section class="streak-hero mb-4" id="studentStreakSection">
     <div class="streak-glow"></div>
     <div class="streak-main">
@@ -1126,6 +1141,9 @@ href="./favicon.svg">
     const points = data.points || 0;
     const completedCount = (data.completedCodingQuestionIds || []).length;
     const planUnlocksSection = subscriptionCanAccessSpecialSection(subscription);
+    const starterRules = document.getElementById("starterPointsRules");
+    // Starter subscribers use the Learning Points unlock path; Pro and Premium get direct access.
+    starterRules?.classList.toggle("d-none", subscription?.planId !== "starter");
     const unlocked = planUnlocksSection || isSpecialSectionUnlocked(points);
     const remaining = Math.max(SPECIAL_SECTION_UNLOCK_POINTS - points, 0);
     const pct = Math.min(Math.round((points / SPECIAL_SECTION_UNLOCK_POINTS) * 100), 100);
@@ -1152,6 +1170,16 @@ href="./favicon.svg">
 </script>
 
 <style>
+.starter-points-rules.d-none{display:none!important}
+.starter-points-rules{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border:1px solid #c4b5fd;border-radius:14px;background:linear-gradient(135deg,#f5f3ff,#fff);color:#334155;box-shadow:0 5px 18px rgba(76,29,149,.08)}
+.starter-points-rules-icon{flex:0 0 36px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#ede9fe;color:#6d28d9;font-size:1.1rem}
+.starter-points-rules-content{min-width:0}
+.starter-points-rules h6{margin:0 0 7px;color:#4c1d95;font-weight:800;font-size:1rem}
+.starter-points-rules p{margin:0 0 6px;line-height:1.55}
+.starter-points-rules ul{margin:0 0 9px;padding-left:1.25rem}
+.starter-points-rules li{margin:.25rem 0;line-height:1.5}
+.starter-points-tip{padding:9px 11px;border-radius:9px;background:#ede9fe;color:#4c1d95;font-size:.9rem;font-weight:600;line-height:1.5}
+@media(max-width:575.98px){.starter-points-rules{padding:13px;gap:10px}.starter-points-rules-icon{flex-basis:30px;width:30px;height:30px}}
 .personal-rank-card{display:flex;align-items:center;gap:16px;padding:14px 18px;margin:12px 0 16px;border:1px solid rgba(13,110,253,.15);border-radius:16px;background:linear-gradient(135deg,rgba(13,110,253,.08),rgba(255,193,7,.08));box-shadow:0 4px 14px rgba(0,0,0,.05)}
 .personal-rank-icon{font-size:2rem}.personal-rank-main{flex:1}.personal-rank-label{font-size:.72rem;font-weight:800;letter-spacing:.08em;color:#6c757d}.personal-rank-value{font-size:1.7rem;font-weight:900;line-height:1.1}.personal-rank-score{font-weight:700;color:#495057}.personal-rank-note{font-size:.9rem;font-weight:700;text-align:right;color:#495057}@media(max-width:576px){.personal-rank-card{align-items:flex-start}.personal-rank-note{display:none}}
 </style>
