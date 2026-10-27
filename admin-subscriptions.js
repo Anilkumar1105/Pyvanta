@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { requireRole } from './auth.js';
-import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, addDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { PYVANTA_PLANS } from './subscription-config.js';
 const rows=document.getElementById('requestRows'), subsRows=document.getElementById('subscribedRows'), notice=document.getElementById('notice');
 function say(message,ok=false){notice.textContent=message;notice.className='alert '+(ok?'alert-success':'alert-warning');notice.classList.remove('d-none');}

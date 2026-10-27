@@ -61,7 +61,8 @@ import {
 } from "./dashboard.js";
 import { generateReportPDF } from "./pdf-export.js";
 import { formatExamWindow, describeExamWindow, formatScheduleWindow, formatScheduleSections, isPass } from "./grading.js";
-import { auth } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { listCodeSubmissionsForExam } from "./student.js";
 import {
   listLevels,
@@ -205,6 +206,37 @@ document.getElementById("sidebarToggle").addEventListener("click", () => {
 /* ============================================================
    ANALYTICS
    ============================================================ */
+async function renderDualAnalytics() {
+  const el = id => document.getElementById(id);
+  const totalAttempts = submissions.length;
+  const numericPercentages = submissions.map(s => Number(s.percentage)).filter(n => Number.isFinite(n) && n >= 0);
+  const avg = numericPercentages.length ? numericPercentages.reduce((a,b)=>a+b,0)/numericPercentages.length : 0;
+  const passed = submissions.filter(s => String(s.result || s.status || "").toLowerCase().includes("pass")).length;
+  el("examAnalyticsAttempts").textContent = totalAttempts;
+  el("examAnalyticsAverage").textContent = `${avg.toFixed(1)}%`;
+  el("examAnalyticsPassRate").textContent = `${totalAttempts ? (passed/totalAttempts*100).toFixed(1) : "0.0"}%`;
+  el("examAnalyticsActive").textContent = exams.filter(e => e.active && !e.deletedAt).length;
+  el("learningAnalyticsStudents").textContent = students.length;
+  el("learningAnalyticsActivity").textContent = dailyLearningActivity.length;
+  try {
+    const [subsSnap, requestsSnap] = await Promise.all([
+      getDocs(collection(db, "subscriptions")),
+      getDocs(collection(db, "subscriptionRequests"))
+    ]);
+    const now = Date.now();
+    const activeSubs = subsSnap.docs.filter(d => {
+      const x=d.data(), expiry=x.expiresAt?.toDate?.();
+      return x.status === "active" && expiry && expiry.getTime() > now;
+    }).length;
+    el("learningAnalyticsSubs").textContent = activeSubs;
+    el("learningAnalyticsRequests").textContent = requestsSnap.size;
+  } catch (err) {
+    console.warn("Subscription analytics could not load", err);
+    el("learningAnalyticsSubs").textContent = "—";
+    el("learningAnalyticsRequests").textContent = "—";
+  }
+}
+
 function renderAnalytics() {
   const stats = computeOverallStats(students, exams, submissions, schedulesByExamId);
   renderStatCards(document.getElementById("statCards"), stats);
@@ -217,6 +249,7 @@ function renderAnalytics() {
   renderToppersCarousel();
   renderWeeklyCodingToppers();
   renderStreakLeaderboardAdmin();
+  renderDualAnalytics();
   renderChartPane();
   applyFiltersAndRenderResults();
 }
@@ -617,7 +650,7 @@ function populateSectionControls() {
 }
 
 function renderStudentsTable() {
-  const filtered = (currentSectionFilter === "all" ? students : students.filter((s) => s.section === currentSectionFilter))
+  const filtered = students
     .slice()
     .sort((a, b) => String(a.rollNumber).localeCompare(String(b.rollNumber), undefined, { numeric: true, sensitivity: "base" }));
   const tbody = document.getElementById("studentsTableBody");
@@ -1195,16 +1228,8 @@ document.getElementById("scheduleForm").addEventListener("submit", async (e) => 
   const time = document.getElementById("scheduleTimeInput").value;
   const startTime = new Date(`${date}T${time}`).toISOString();
 
-  const allSections = document.getElementById("scheduleAllSectionsInput").checked;
-  const sections = allSections
-    ? []
-    : [...document.querySelectorAll(".schedule-section-checkbox:checked")].map((cb) => cb.value);
-
-  if (!allSections && !sections.length) {
-    errorEl.textContent = 'Select at least one section, or check "All Sections".';
-    errorEl.classList.remove("d-none");
-    return;
-  }
+  // Section-based scheduling has been removed: every schedule applies to all students.
+  const sections = [];
 
   if (!editingScheduleId && examSchedules.length >= MAX_SCHEDULES_PER_EXAM) {
     errorEl.textContent = `This exam already has the maximum of ${MAX_SCHEDULES_PER_EXAM} schedules.`;
