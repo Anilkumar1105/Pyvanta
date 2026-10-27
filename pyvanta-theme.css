@@ -300,3 +300,90 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
     overflow-x: hidden;
   }
 }
+
+
+/* Coding Practice: restore the Pyvanta dark theme and readable contrast. */
+.learning-body #learningContent:has(#codingListWrap),
+.learning-body #learningContent:has(#learningCodeEditor) {
+  background: #12151E !important;
+  color: #F3F4F8 !important;
+  border: 1px solid rgba(176,187,211,.15) !important;
+}
+.learning-body #learningContent:has(#codingListWrap) h1,
+.learning-body #learningContent:has(#codingListWrap) h2,
+.learning-body #learningContent:has(#codingListWrap) h3,
+.learning-body #learningContent:has(#codingListWrap) h4,
+.learning-body #learningContent:has(#codingListWrap) h5,
+.learning-body #learningContent:has(#codingListWrap) strong,
+.learning-body #learningContent:has(#learningCodeEditor) h1,
+.learning-body #learningContent:has(#learningCodeEditor) h2,
+.learning-body #learningContent:has(#learningCodeEditor) h3,
+.learning-body #learningContent:has(#learningCodeEditor) h4,
+.learning-body #learningContent:has(#learningCodeEditor) h5,
+.learning-body #learningContent:has(#learningCodeEditor) strong,
+.learning-body #learningContent:has(#learningCodeEditor) label {
+  color: #F3F4F8 !important;
+}
+.learning-body #learningContent:has(#codingListWrap) .question-card {
+  background: #171B27 !important;
+  border: 1px solid #303747 !important;
+  border-radius: 14px;
+  color: #F3F4F8 !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14);
+}
+.learning-body #learningContent:has(#codingListWrap) .question-card:hover {
+  border-color: rgba(139,92,246,.65) !important;
+  background: #1D2230 !important;
+}
+.learning-body #learningContent:has(#codingListWrap) .question-card strong {
+  color: #F3F4F8 !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) p,
+.learning-body #learningContent:has(#learningCodeEditor) .text-muted {
+  color: #A5ADBD !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .sample-case {
+  padding: 14px;
+  background: #171B27 !important;
+  border: 1px solid #303747 !important;
+  border-radius: 12px;
+  color: #F3F4F8 !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .sample-case-title,
+.learning-body #learningContent:has(#learningCodeEditor) .sample-io-label {
+  color: #DCE3F1 !important;
+  font-weight: 700;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .sample-io-value {
+  background: #0D1018 !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  border: 1px solid #303747 !important;
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.learning-body #learningContent:has(#learningCodeEditor) #learningSubmissionHistory {
+  color: #F3F4F8 !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .learning-submission-row {
+  color: #DCE3F1 !important;
+  border-color: #303747 !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .learning-submission-row .text-muted {
+  color: #A5ADBD !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .python-status {
+  color: #A5ADBD !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .testcase-result.pass {
+  background: rgba(16,185,129,.10) !important;
+  color: #D1FAE5 !important;
+  border-color: rgba(52,211,153,.55) !important;
+}
+.learning-body #learningContent:has(#learningCodeEditor) .testcase-result.fail {
+  background: rgba(248,113,113,.10) !important;
+  color: #FEE2E2 !important;
+  border-color: rgba(248,113,113,.45) !important;
+}

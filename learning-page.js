@@ -673,7 +673,7 @@ async function submitPractice(q) {
     }
 
     try { localStorage.removeItem(draftKey); } catch (_) {}
-    renderLearningHistory(q.id);
+    await renderLearningHistory(q.id);
   } catch (err) {
     console.error("Learning code submission failed:", err);
 
@@ -688,6 +688,7 @@ async function submitPractice(q) {
       } catch (updateError) {
         console.error("Could not update failed submission record:", updateError);
       }
+      await renderLearningHistory(q.id);
     }
 
     statusEl.textContent = submissionId

@@ -263,10 +263,22 @@ export async function listLearningCodeSubmissions(studentId, questionId) {
     where("studentId", "==", studentId),
     where("questionId", "==", questionId)
   );
-  const snap = await getDocsCached(q, `user:${studentId}:col:learningCodeSubmissions:question:${questionId}`);
-  return snap.docs
+  // Submission history must reflect the latest grading update, not a cached
+  // "processing" snapshot created when the submission first started.
+  const snap = await getDocs(q);
+  const history = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+
+  // Refresh the shared cache so other views do not keep showing stale grading.
+  for (const item of history) {
+    upsertCachedQueryDoc(
+      `user:${studentId}:col:learningCodeSubmissions:question:${questionId}`,
+      item.id,
+      item
+    );
+  }
+  return history;
 }
 
 /* ============================================================
