@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { requireRole } from './auth.js';
-import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, addDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { PYVANTA_PLANS } from './subscription-config.js';
 const rows=document.getElementById('requestRows'), subsRows=document.getElementById('subscribedRows'), notice=document.getElementById('notice');
 function say(message,ok=false){notice.textContent=message;notice.className='alert '+(ok?'alert-success':'alert-warning');notice.classList.remove('d-none');}
@@ -23,3 +23,8 @@ if(r.email){
 say(`Approved ${r.email}. Access expires ${expiry.toLocaleDateString()}.${emailQueued?' Confirmation email queued.':' Subscription activated; email could not be queued (check Firebase Email Trigger setup/rules).'}`,true);await loadRequests();await loadSubscribers()}catch(e){console.error(e);say('Approval failed. Confirm Firestore rules and try again.')}}
 async function rejectRequest(id){if(!confirm('Reject this payment request?'))return;try{await updateDoc(doc(db,'subscriptionRequests',id),{status:'rejected',reviewedAt:serverTimestamp()});say('Request rejected.',true);await loadRequests()}catch(e){console.error(e);say('Could not reject request. Check Firestore rules.')}}
 document.getElementById('refresh').addEventListener('click',()=>{loadRequests();loadSubscribers()});requireRole('admin',()=>{loadRequests();loadSubscribers()});
+
+const qrUpload=document.getElementById('qrUpload'), qrPreview=document.getElementById('qrPreview'), qrStatus=document.getElementById('qrStatus');
+async function loadPaymentQr(){try{const snap=await getDoc(doc(db,'appSettings','payment'));if(snap.exists()&&snap.data().qrDataUrl){qrPreview.src=snap.data().qrDataUrl;qrPreview.classList.remove('d-none');qrStatus.textContent='Current QR image is saved.';}}catch(e){console.error('QR load failed',e);}}
+document.getElementById('saveQr').addEventListener('click',async()=>{const file=qrUpload.files?.[0];if(!file){qrStatus.textContent='Choose a QR image first.';return;}if(!['image/png','image/jpeg','image/webp'].includes(file.type)){qrStatus.textContent='Choose a PNG, JPG, or WebP image.';return;}if(file.size>700*1024){qrStatus.textContent='Image is over 700 KB. Resize/compress it and try again.';return;}const btn=document.getElementById('saveQr');btn.disabled=true;qrStatus.textContent='Saving…';try{const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});await setDoc(doc(db,'appSettings','payment'),{qrDataUrl:dataUrl,qrFileName:file.name,updatedAt:serverTimestamp()},{merge:true});qrPreview.src=dataUrl;qrPreview.classList.remove('d-none');qrStatus.textContent='QR image saved. Students can see it on the subscription page.';}catch(e){console.error(e);qrStatus.textContent='Could not save QR. Check Firestore rules and document size.';}finally{btn.disabled=false;}});
+loadPaymentQr();

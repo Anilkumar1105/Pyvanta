@@ -888,9 +888,11 @@ document.getElementById("studentForm").addEventListener("submit", async (e) => {
         submitBtn.disabled = false;
         return;
       }
-      await addStudent({ name, rollNumber, section, email, password });
+      const created = await addStudent({ name, rollNumber, section, email, password });
       const infoEl = document.getElementById("studentCreatedInfo");
-      infoEl.textContent = `Student account created. Share the email + password you set with the student directly.`;
+      infoEl.textContent = created.verificationEmailSent
+        ? `Student account created. A verification email was sent to ${email}. Ask the student to check Inbox/Spam.`
+        : `Student account created, but the verification email could not be sent. Check Firebase Authentication email settings and try sending a verification email again.`;
       infoEl.classList.remove("d-none");
       await loadEverything();
     }

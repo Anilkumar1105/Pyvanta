@@ -32,6 +32,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Public app settings required by signed-in users (e.g. admin-uploaded payment QR).
+    match /appSettings/{settingId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
     // users/{uid}
     match /users/{uid} {
       allow read: if isOwner(uid) || isAdmin();

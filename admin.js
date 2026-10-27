@@ -8,6 +8,7 @@ import { getDocCached, getDocsCached, invalidateCache, invalidateCollection, bum
 import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signOut as secondarySignOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -52,9 +53,16 @@ export async function addStudent({ name, rollNumber, section, email, password })
   const trimmedPassword = String(password || "").trim();
   const cred = await createUserWithEmailAndPassword(secondaryAuth, email, trimmedPassword);
   const uid = cred.user.uid;
+  let verificationEmailSent = false;
+  try {
+    // Send the verification link from the newly created student's account.
+    await sendEmailVerification(cred.user);
+    verificationEmailSent = true;
+  } catch (emailError) {
+    console.error("Student created, but verification email could not be sent:", emailError);
+  }
 
-  // Sign the secondary app back out immediately so it's clean for the
-  // next student and never lingers as an active session.
+  // Sign the secondary app back out immediately so the admin session stays active.
   await secondarySignOut(secondaryAuth);
 
   await setDoc(doc(db, "users", uid), {
@@ -69,7 +77,7 @@ export async function addStudent({ name, rollNumber, section, email, password })
   });
   invalidateCollection("users");
   await bumpRemoteCacheVersion(db, "users");
-  return { uid };
+  return { uid, verificationEmailSent };
 }
 
 /**
