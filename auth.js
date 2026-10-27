@@ -26,7 +26,10 @@ export async function logoutUser() {
 
 /** Fetch the Firestore profile (users/{uid}) for a given uid. */
 export async function getUserProfile(uid) {
-  const snap = await getDocCached(doc(db, "users", uid), `user:${uid}:col:users:doc:${uid}`);
+  // Always read the role/profile document directly. A cached "not found"
+  // result from before an admin profile was created can otherwise keep
+  // the login screen showing "No profile found" after the document exists.
+  const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? snap.data() : null;
 }
 
