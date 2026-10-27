@@ -2148,24 +2148,15 @@ body.special-body .navbar-brand {
 }
 
 
-/* Learning page: keep the learning-path card in place while its own items scroll. */
+/* Desktop learning layout: let the lesson panels control their own scrolling. */
 @media (min-width: 992px) {
   .learning-body #tmplLoaded,
   .learning-body #pageBody {
     overflow: visible;
   }
 
-  .learning-body #learningNav {
-    max-height: calc(100vh - 170px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-  }
-
   .learning-body #learningNavCard,
   .learning-body .learning-path-card {
-    position: sticky;
-    top: 1rem;
     align-self: start;
   }
 }

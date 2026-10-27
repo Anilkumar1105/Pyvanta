@@ -168,24 +168,46 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
 .admin-sidebar-link { display:flex; align-items:center; gap:.75rem; margin:.18rem .55rem; padding:.8rem 1rem; border:1px solid rgba(34,211,238,.18); border-radius:.7rem; background:rgba(34,211,238,.04); color:#22D3EE !important; text-decoration:none; }
 .admin-sidebar-link:hover { background:rgba(139,92,246,.16); border-color:#8B5CF6; color:#F3F4F8 !important; }
 
-/* Learning page: keep both panels in view and scroll their content independently. */
+/* Learning page: keep the header visible while allowing every lesson item to be reached. */
 @media (min-width: 992px) {
   .learning-body #pageBody > .row {
     align-items: flex-start;
   }
+
   .learning-body .learning-path-card,
   .learning-body #learningContent {
     position: sticky;
     top: 1rem;
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
+    max-height: calc(100vh - 240px);
+    max-height: calc(100dvh - 240px);
+    min-height: 0;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: #8b93a5 transparent;
   }
+
+  /* Keep the Learning Path heading fixed and scroll the complete list below it. */
+  .learning-body .learning-path-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .learning-body #learningNav {
-    max-height: none;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - 290px);
+    max-height: calc(100dvh - 290px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #8b93a5 transparent;
+  }
+
+  /* Lesson text, MCQs and code content can all be reached without clipping. */
+  .learning-body #learningContent {
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 }
 
@@ -275,5 +297,6 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
   .learning-body #learningNav {
     max-height: 55vh;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 }
