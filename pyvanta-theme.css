@@ -387,3 +387,43 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
   color: #FEE2E2 !important;
   border-color: rgba(248,113,113,.45) !important;
 }
+
+/* MCQ result screen: ensure the score, total and percentage remain readable
+   on the existing light result card. */
+.learning-body #learningContent .display-6.fw-bold {
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  font-weight: 800 !important;
+  letter-spacing: -.025em;
+}
+.learning-body #learningContent .display-6.fw-bold .text-muted {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+  opacity: 1 !important;
+}
+.learning-body #learningContent .result-badge-icon + .badge.bg-success {
+  color: #065F46 !important;
+  background: #D1FAE5 !important;
+  border: 1px solid #6EE7B7 !important;
+  -webkit-text-fill-color: #065F46 !important;
+}
+.learning-body #learningContent .result-badge-icon + .badge.bg-danger {
+  color: #991B1B !important;
+  background: #FEE2E2 !important;
+  border: 1px solid #FCA5A5 !important;
+  -webkit-text-fill-color: #991B1B !important;
+}
+.learning-body #learningContent .text-center.py-3 > .text-muted.mb-3 {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+  opacity: 1 !important;
+  font-weight: 600;
+}
+.learning-body #learningContent .alert.alert-success {
+  color: #064E3B !important;
+  background: #D1FAE5 !important;
+  border-color: #6EE7B7 !important;
+}
+.learning-body #learningContent .alert.alert-success i {
+  color: #065F46 !important;
+}
