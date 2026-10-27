@@ -45,13 +45,13 @@ href="./favicon.svg">
         <div class="points-card-icon"><i class="bi bi-gem"></i></div>
         <div>
           <div class="points-card-title">Learning Points</div>
-          <div class="points-card-value"><span id="pointsCurrentValue">0</span> / <span id="pointsTargetValue">100</span></div>
+          <div class="points-card-value"><span id="pointsCurrentValue">0</span> / <span id="pointsTargetValue">150</span></div>
           <div class="points-card-sub"><span id="pointsCompletedCount">0</span> coding questions completed</div>
         </div>
       </div>
       <div class="points-card-right">
         <span class="badge points-status-badge" id="pointsStatusBadge">Locked</span>
-        <div class="points-card-remaining" id="pointsRemainingText">100 points to unlock</div>
+        <div class="points-card-remaining" id="pointsRemainingText">150 points to unlock</div>
         <div class="points-mini-track"><div class="points-mini-fill" id="pointsMiniFill" style="width:0%"></div></div>
       </div>
     </div>
@@ -274,6 +274,7 @@ href="./favicon.svg">
   import { isPass, PASS_MARK, computeExamAccessStatus, describeExamWindow, filterSchedulesForSection } from "./grading.js";
   import { getWeeklyToppers, getWeeklyCodingToppers } from "./student.js";
   import { getStudentPoints, isSpecialSectionUnlocked, SPECIAL_SECTION_UNLOCK_POINTS } from "./points.js";
+  import { getActiveSubscription, subscriptionCanAccessSpecialSection } from "./subscription-access.js";
   import { renderTopperGrid, renderCodingToppers, renderAllTimePythonTopper, renderBestLearner } from "./dashboard.js";
   import { generateReportPDF } from "./pdf-export.js";
   import { listActiveLevels, listProgressForStudent } from "./learning.js";
@@ -1118,10 +1119,14 @@ href="./favicon.svg">
 
   /* ---------- Learning Points card ---------- */
   async function renderLearningPointsCard() {
-    const data = await getStudentPoints(currentUser.uid).catch(() => ({ points: 0, completedCodingQuestionIds: [] }));
+    const [data, subscription] = await Promise.all([
+      getStudentPoints(currentUser.uid).catch(() => ({ points: 0, completedCodingQuestionIds: [] })),
+      getActiveSubscription(currentUser.uid).catch(() => null)
+    ]);
     const points = data.points || 0;
     const completedCount = (data.completedCodingQuestionIds || []).length;
-    const unlocked = isSpecialSectionUnlocked(points);
+    const planUnlocksSection = subscriptionCanAccessSpecialSection(subscription);
+    const unlocked = planUnlocksSection || isSpecialSectionUnlocked(points);
     const remaining = Math.max(SPECIAL_SECTION_UNLOCK_POINTS - points, 0);
     const pct = Math.min(Math.round((points / SPECIAL_SECTION_UNLOCK_POINTS) * 100), 100);
 
@@ -1135,7 +1140,9 @@ href="./favicon.svg">
     if (unlocked) {
       statusBadge.textContent = "Unlocked";
       statusBadge.classList.add("unlocked");
-      remainingText.textContent = "Special Coding Section is open!";
+      remainingText.textContent = planUnlocksSection
+        ? `${subscription.plan?.name || (subscription.planId === "premium" ? "Premium" : "Pro")} plan: Special Coding Section is open!`
+        : "Special Coding Section is open!";
     } else {
       statusBadge.textContent = "Locked";
       statusBadge.classList.remove("unlocked");

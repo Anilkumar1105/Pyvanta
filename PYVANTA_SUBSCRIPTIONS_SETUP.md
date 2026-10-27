@@ -2,7 +2,7 @@
 
 ## Included
 - Pyvanta dark theme tokens: Jet Black `#050505`, Royal Amethyst `#6633AA`, Electric Cyan `#00E5FF`.
-- Subscription plans: ₹99 / 3 months, ₹199 / 6 months, ₹299 / 12 months.
+- Subscription plans: Starter ₹149 / 60 days; Pro ₹299 / 180 days; Premium ₹499 / 360 days.
 - Email/password student signup with Firebase email verification. New self-registrations are student-only. Existing login accounts remain able to sign in; payment activation requires verified email.
 - UPI intent + QR generated in the browser after configuring the merchant UPI ID.
 - Payment requests stored in `subscriptionRequests`; admin approval creates/extends `subscriptions/{uid}`.
@@ -36,3 +36,9 @@
 Queueing a document does not send an email by itself. In Firebase Console, install/configure the official **Trigger Email from Firestore** extension and connect a real SMTP provider. Configure it to watch the `mail` collection and verify the sender domain/address. Deploy the updated `firestore.rules` so only admins can enqueue email messages. Test with a real test account before production. If the extension is not installed/configured or the admin role rules block writes, the subscription will still activate but the UI will warn that email could not be queued.
 
 Do not put SMTP passwords or email-provider secrets in frontend JavaScript or GitHub Pages.
+
+
+Current plan policy (2026-10):
+- Starter (₹149 / 60 days): regular learning sections and MCQ/mock tests; Special Coding Section unlocks at 150 Learning Points.
+- Pro (₹299 / 180 days): Starter features plus direct Special Coding Section access without the point threshold.
+- Premium (₹499 / 360 days): Pro features, all special sections, and Code Visualizations Lab. SQLite sessions are planned for Premium within 1–2 months and are not live yet.

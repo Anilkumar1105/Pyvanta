@@ -27,8 +27,26 @@ href="./favicon.svg">
   <script type="module">
     import { requireRole, wireLogoutButtons } from "./auth.js";
     import { renderCodeVisualizations } from "./code-visualizations.js";
+    import { getActiveSubscription, subscriptionCanAccessVisualizations } from "./subscription-access.js";
     wireLogoutButtons();
-    requireRole("student", () => renderCodeVisualizations(document.getElementById("visualizationsRoot")));
+    requireRole("student", async (user) => {
+      const root = document.getElementById("visualizationsRoot");
+      const subscription = await getActiveSubscription(user.uid).catch(() => null);
+      if (!subscriptionCanAccessVisualizations(subscription)) {
+        root.innerHTML = `
+          <section class="pv-panel p-4 p-lg-5 text-center mx-auto" style="max-width:760px">
+            <div class="display-5 mb-3"><i class="bi bi-lock-fill"></i></div>
+            <span class="pv-eyebrow">PREMIUM FEATURE</span>
+            <h1 class="h2 mt-3">Code Visualizations Lab</h1>
+            <p class="pv-muted mx-auto" style="max-width:560px">This interactive algorithm visualization lab is included with the Premium plan (₹499 for 12 months / 360 days).</p>
+            <p class="pv-muted small">Pro and Starter students can continue using their included learning sections and mock tests.</p>
+            <a class="btn btn-mint mt-2" href="subscriptions.html">View Premium plan</a>
+            <a class="btn btn-outline-mint mt-2 ms-2" href="student-dashboard.html">Back to dashboard</a>
+          </section>`;
+        return;
+      }
+      renderCodeVisualizations(root);
+    });
   </script>
 </body>
 </html>
