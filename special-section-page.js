@@ -1,6 +1,6 @@
 // js/special-section-page.js
 // Drives special-section.html: shows a locked state until the student
-// reaches 150 Learning Points, plays a one-time unlock celebration,
+// reaches 200 Learning Points, plays a one-time unlock celebration,
 // then lets them browse exclusive company-style interview questions
 // grouped by company and practice them with the same Run/Submit
 // editor used elsewhere - but submissions here never grant further

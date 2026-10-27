@@ -39,6 +39,6 @@ Do not put SMTP passwords or email-provider secrets in frontend JavaScript or Gi
 
 
 Current plan policy (2026-10):
-- Starter (₹149 / 60 days): regular learning sections and MCQ/mock tests; Special Coding Section unlocks at 150 Learning Points.
+- Starter (₹149 / 60 days): regular learning sections and MCQ/mock tests; Special Coding Section unlocks at 200 Learning Points.
 - Pro (₹299 / 180 days): Starter features plus direct Special Coding Section access without the point threshold.
 - Premium (₹499 / 360 days): Pro features, all special sections, and Code Visualizations Lab. SQLite sessions are planned for Premium within 1–2 months and are not live yet.

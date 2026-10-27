@@ -6,12 +6,12 @@ export const PYVANTA_PLANS = [
   {
     id: "starter", name: "Starter", durationDays: 60, durationLabel: "2 months · 60 days", price: 149,
     label: "Essential", specialSection: "points", allSpecialSections: false, codeVisualizations: false, sqliteSessions: false,
-    features: ["All regular learning sections", "MCQ tests and mock tests", "Coding practice and progress tracking", "Special Coding Section unlocks at 150 Learning Points"]
+    features: ["All regular learning sections", "MCQ tests and mock tests", "Coding practice and progress tracking", "Special Coding Section unlocks at 200 Learning Points"]
   },
   {
     id: "pro", name: "Pro", durationDays: 180, durationLabel: "6 months · 180 days", price: 299,
     label: "Most Popular", specialSection: "included", allSpecialSections: false, codeVisualizations: false, sqliteSessions: false,
-    features: ["Everything in Starter", "Direct access to the Special Coding Section", "No 150-point requirement for that section", "MCQ tests, mock tests and progress tracking"]
+    features: ["Everything in Starter", "Direct access to the Special Coding Section", "No 200-point requirement for that section", "MCQ tests, mock tests and progress tracking"]
   },
   {
     id: "premium", name: "Premium", durationDays: 360, durationLabel: "12 months · 360 days", price: 499,

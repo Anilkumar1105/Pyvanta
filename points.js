@@ -1,7 +1,7 @@
 // js/points.js
 // Tracks "Learning Points" earned from the existing Learning Section
 // (2 points per fully-solved coding question) and gates the Special
-// Coding Section behind a 150-point threshold. Kept in its own
+// Coding Section behind a 200-point threshold. Kept in its own
 // collection (studentPoints) rather than on the users doc so this
 // feature never needs write access to more sensitive user fields.
 
@@ -10,7 +10,7 @@ import { doc, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/
 import { getDocCached, setCachedDoc } from "./firestore-cache.js";
 
 export const POINTS_PER_COMPLETED_QUESTION = 2;
-export const SPECIAL_SECTION_UNLOCK_POINTS = 150;
+export const SPECIAL_SECTION_UNLOCK_POINTS = 200;
 
 function emptyPoints(studentId) {
   return {

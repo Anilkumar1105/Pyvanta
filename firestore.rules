@@ -233,7 +233,7 @@ service cloud.firestore {
     }
 
     // ===================== Special Coding Section =====================
-    // Locked until a student reaches 100 Learning Points, earned only
+    // Locked until a student reaches 200 Learning Points, earned only
     // from the existing Learning Section (2 points per fully-solved
     // coding question). Points live in their own collection rather
     // than on the users doc so this feature never needs write access
@@ -268,7 +268,7 @@ service cloud.firestore {
 
     // specialCodingQuestions/{questionId}
     // Exclusive company-style interview practice questions, unlocked
-    // client-side once a student hits 100 points. Same limitation as
+    // client-side once a student hits 200 points. Same limitation as
     // every other "hidden until X" collection in this app: Firestore
     // rules can't gate on a computed points threshold without a
     // backend, so this is a UI-level unlock, not a hard security

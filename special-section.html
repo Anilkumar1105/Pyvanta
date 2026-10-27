@@ -46,11 +46,23 @@ href="./favicon.svg">
         <div class="special-progress-fill" id="lockedProgressFill" style="width:0%"></div>
       </div>
       <div class="special-points-label">
-        <span id="lockedPointsCurrent">0</span> / <span id="lockedPointsTarget">100</span> points
+        <span id="lockedPointsCurrent">0</span> / <span id="lockedPointsTarget">200</span> points
       </div>
-      <div class="special-remaining-badge" id="lockedRemainingBadge">100 more points to unlock</div>
+      <div class="special-remaining-badge" id="lockedRemainingBadge">200 more points to unlock</div>
 
       <a href="student-dashboard.html#toppersSection" class="btn btn-special mt-4"><i class="bi bi-mortarboard me-1"></i>Keep Learning</a>
+
+      <div class="special-unlock-guide mt-4" aria-label="How to unlock the Special Coding Section">
+        <h5><i class="bi bi-lightbulb-fill me-2"></i>How to unlock on the Starter plan</h5>
+        <p>Earn <strong>200 Learning Points</strong> by solving coding questions in the regular Learning Section.</p>
+        <ul>
+          <li>Earn <strong>2 points</strong> when all test cases pass for a coding question.</li>
+          <li>Complete <strong>100 different coding questions</strong> to earn 200 points.</li>
+          <li>Each question awards points only once; repeated submissions do not add points.</li>
+          <li>MCQ tests, opening a question, or running code without passing all test cases do not earn Learning Points.</li>
+        </ul>
+        <p class="special-unlock-guide-tip mb-0">Your progress is saved automatically. This section unlocks when you reach 200 points. Pro and Premium subscribers get direct access.</p>
+      </div>
     </div>
   </div>
 </template>
@@ -67,7 +79,7 @@ href="./favicon.svg">
         <i class="bi bi-unlock-fill lock-icon"></i>
       </div>
       <h3 class="special-title">Unlocked!</h3>
-      <p class="special-sub">You've reached 150 Learning Points. The Special Coding Section is now yours.</p>
+      <p class="special-sub">You've reached 200 Learning Points. The Special Coding Section is now yours.</p>
       <button class="btn btn-special mt-3" id="continueToSpecialBtn"><i class="bi bi-arrow-right-circle me-1"></i>Enter Special Section</button>
     </div>
   </div>

@@ -1,7 +1,7 @@
 // js/special-section.js
 // Data layer for the premium "Special Coding Section": exclusive,
 // company-style interview practice questions unlocked once a student
-// reaches 150 Learning Points. Reuses the same coding-question shape
+// reaches 200 Learning Points. Reuses the same coding-question shape
 // (starter code, examples, visible/hidden test cases) as the exam and
 // learning coding questions, so the same editor/grading pipeline works
 // unchanged - only the storage collection and the `company` field are new.
