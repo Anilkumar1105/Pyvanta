@@ -8,13 +8,15 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebas
 
 // TODO: Replace with your own Firebase project config
 // (Firebase Console -> Project Settings -> General -> Your apps -> SDK setup)
+// Firebase configuration for the Pyvanta project
 const firebaseConfig = {
-apiKey: "AIzaSyBCT7z3ojdczPkuO8uvVbp0b7SJH9EeX14",
-  authDomain: "coding-exam-platform-18be6.firebaseapp.com",
-  projectId: "coding-exam-platform-18be6",
-  storageBucket: "coding-exam-platform-18be6.firebasestorage.app",
-  messagingSenderId: "816894132302",
-  appId: "1:816894132302:web:ea0a214009abe01e9a031f"
+  apiKey: "AIzaSyC7UIZD_NLKGJbdHylRqwKILPIoRjS4O6c",
+  authDomain: "pyvanta-cae84.firebaseapp.com",
+  projectId: "pyvanta-cae84",
+  storageBucket: "pyvanta-cae84.firebasestorage.app",
+  messagingSenderId: "266779209954",
+  appId: "1:266779209954:web:ab7983e489cc1749ce6ebb",
+  measurementId: "G-JDVXNJDV62"
 };
 
 // Primary app: used for the currently logged-in user (admin or student)
