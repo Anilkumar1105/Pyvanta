@@ -167,3 +167,113 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
 .admin-sidebar-section { margin: .85rem 1rem .25rem; color:#707B91; font-size:.68rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
 .admin-sidebar-link { display:flex; align-items:center; gap:.75rem; margin:.18rem .55rem; padding:.8rem 1rem; border:1px solid rgba(34,211,238,.18); border-radius:.7rem; background:rgba(34,211,238,.04); color:#22D3EE !important; text-decoration:none; }
 .admin-sidebar-link:hover { background:rgba(139,92,246,.16); border-color:#8B5CF6; color:#F3F4F8 !important; }
+
+/* Learning page: keep both panels in view and scroll their content independently. */
+@media (min-width: 992px) {
+  .learning-body #pageBody > .row {
+    align-items: flex-start;
+  }
+  .learning-body .learning-path-card,
+  .learning-body #learningContent {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #8b93a5 transparent;
+  }
+  .learning-body #learningNav {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* Prevent the learning-path items from sliding sideways on hover. */
+.learning-body .learning-nav-item,
+.learning-body .learning-nav-item:hover:not(.disabled) {
+  transform: none !important;
+  translate: none !important;
+  color: #374151;
+}
+.learning-body .learning-nav-item:hover:not(.disabled) {
+  background: #e9e7ff !important;
+  border-color: #c4b5fd !important;
+  color: #312e81 !important;
+}
+.learning-body .learning-nav-item.active,
+.learning-body .learning-nav-item.active:hover {
+  color: #fff !important;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed) !important;
+  border-color: transparent !important;
+}
+.learning-body .learning-nav-item.disabled,
+.learning-body .learning-nav-item.disabled:hover {
+  color: #9ca3af !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* High-contrast text for learning titles and the MCQ quiz on its light surface. */
+.learning-body #learningContent > h1,
+.learning-body #learningContent > h2,
+.learning-body #learningContent > h3,
+.learning-body #learningContent > h4,
+.learning-body #learningContent > h5,
+.learning-body #learningContent > h6,
+.learning-body #learningContent .fw-semibold,
+.learning-body #learningContent label,
+.learning-body #learningContent .form-check-label {
+  color: #1f2937 !important;
+}
+.learning-body #learningContent .text-muted {
+  color: #64748b !important;
+}
+.learning-body #learningContent .mcq-option {
+  color: #1f2937 !important;
+  background: #fff !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  line-height: 1.5;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transform: none !important;
+}
+.learning-body #learningContent .mcq-option:hover {
+  background: #f5f3ff !important;
+  border-color: #a78bfa !important;
+  box-shadow: 0 2px 8px rgba(79,70,229,.08);
+  transform: none !important;
+}
+.learning-body #learningContent .mcq-option.selected {
+  background: #ede9fe !important;
+  border-color: #7c3aed !important;
+  box-shadow: 0 0 0 2px rgba(124,58,237,.12);
+  color: #312e81 !important;
+}
+.learning-body #learningContent .mcq-option input[type="radio"] {
+  flex: 0 0 auto;
+  accent-color: #6d28d9;
+}
+
+/* Code Visualizations Lab: sample input/output text must be clearly white on dark code panels. */
+.cv-example-grid pre {
+  background: #0b0f19 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.cv-example-grid span {
+  color: #334155 !important;
+}
+@media (max-width: 991.98px) {
+  .learning-body .learning-path-card,
+  .learning-body #learningContent {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .learning-body #learningNav {
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+}
