@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin-dashboard.html
+Disallow: /setup-admin.html
+Disallow: /student-dashboard.html
+Disallow: /dashboard.html
+Disallow: /login.html
+Disallow: /learning.html
+Disallow: /special-section.html
+
+Sitemap: https://pyvanta.vercel.app/sitemap.xml
