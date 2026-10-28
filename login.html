@@ -38,57 +38,68 @@ href="./favicon.svg">
 </div>
 
 <div class="login-center-wrap">
-  <div class="login-card">
-    <div class="text-center mb-4">
-      <div class="login-brand mb-3">
-        <i class="bi bi-stars me-2"></i>Pyvanta
-      </div>
-      <h4 class="fw-bold mb-1">Welcome back</h4>
-      <p class="text-muted small mb-0">Sign in to continue to your dashboard</p>
-    </div>
-
-    <div id="loginError" class="alert alert-danger py-2 d-none" role="alert"></div>
-
-    <form id="loginForm">
-      <div class="mb-3">
-        <label for="email" class="form-label">Email address</label>
-        <div class="input-group login-input-group">
-          <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-          <input type="email" class="form-control" id="email" placeholder="you@example.com" required autocomplete="username" />
+  <div class="login-flip-container" id="loginFlipContainer">
+    <div class="login-flip-inner" id="loginFlipInner">
+      <section class="login-card login-face login-face-front" id="loginFace">
+        <div class="text-center mb-4">
+          <div class="login-brand mb-3"><i class="bi bi-stars me-2"></i>Pyvanta</div>
+          <h4 class="fw-bold mb-1">Welcome back</h4>
+          <p class="text-muted small mb-0">Sign in to continue to your dashboard</p>
         </div>
-      </div>
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <div class="input-group login-input-group">
-          <span class="input-group-text"><i class="bi bi-lock"></i></span>
-          <input type="password" class="form-control" id="password" placeholder="Enter your password" required autocomplete="current-password" />
-          <button class="btn btn-outline-secondary" type="button" id="togglePasswordBtn" tabindex="-1" title="Show/hide password">
-            <i class="bi bi-eye" id="togglePasswordIcon"></i>
-          </button>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-brand w-100" id="loginBtn">
-        <span id="loginBtnText">Login</span>
-      </button>
-    </form>
+        <div id="loginError" class="alert alert-danger py-2 d-none" role="alert"></div>
+        <form id="loginForm">
+          <div class="mb-3">
+            <label for="email" class="form-label">Email address</label>
+            <div class="input-group login-input-group"><span class="input-group-text"><i class="bi bi-envelope"></i></span><input type="email" class="form-control" id="email" placeholder="you@example.com" required autocomplete="username" /></div>
+          </div>
+          <div class="mb-1">
+            <label for="password" class="form-label">Password</label>
+            <div class="input-group login-input-group"><span class="input-group-text"><i class="bi bi-lock"></i></span><input type="password" class="form-control" id="password" placeholder="Enter your password" required autocomplete="current-password" /><button class="btn btn-outline-secondary" type="button" id="togglePasswordBtn" tabindex="-1" title="Show/hide password"><i class="bi bi-eye" id="togglePasswordIcon"></i></button></div>
+          </div>
+          <div class="text-end mb-3"><button class="btn btn-link btn-sm p-0" type="button" id="forgotPasswordBtn">Forgot password?</button></div>
+          <div id="resetPasswordMessage" class="alert py-2 d-none" role="status" aria-live="polite"></div>
+          <button type="submit" class="btn btn-brand w-100" id="loginBtn"><span id="loginBtnText">Login</span></button>
+        </form>
+        <div class="text-center mt-3"><button class="btn btn-link btn-sm" type="button" id="showSignup">New to Pyvanta? Create a student account</button></div>
+        <p class="text-center text-muted small mt-4 mb-0">Students and admins sign in here. New registrations create student accounts only.</p>
+      </section>
 
-    <div class="text-center mt-3"><button class="btn btn-link btn-sm" type="button" id="showSignup">New to Pyvanta? Create a student account</button></div>
-    <div id="signupPanel" class="d-none mt-3 pt-3 border-top">
-      <h5 class="fw-bold">Create your student account</h5><p class="small text-muted">Use a valid email. You must verify it before requesting a subscription.</p>
-      <div id="signupError" class="alert alert-danger py-2 d-none" role="alert"></div>
-      <form id="signupForm"><div class="mb-3"><label for="signupName" class="form-label">Full name</label><input class="form-control" id="signupName" maxlength="100" required autocomplete="name"></div>
-      <div class="mb-3"><label for="signupEmail" class="form-label">Email address</label><input type="email" class="form-control" id="signupEmail" required autocomplete="email"></div>
-      <div class="mb-3"><label for="signupPassword" class="form-label">Password (at least 8 characters)</label><input type="password" class="form-control" id="signupPassword" minlength="8" required autocomplete="new-password"></div>
-      <button class="btn btn-mint w-100" id="signupBtn" type="submit">Create account &amp; send verification</button></form>
+      <section class="login-card login-face login-face-back" id="signupPanel" aria-hidden="true">
+        <div class="text-center mb-4">
+          <div class="login-brand mb-3"><i class="bi bi-stars me-2"></i>Pyvanta</div>
+          <h4 class="fw-bold mb-1">Create your student account</h4>
+          <p class="text-muted small mb-0">Join Pyvanta and start learning Python.</p>
+        </div>
+        <p class="small text-muted">Use a valid email. You must verify it before requesting a subscription.</p>
+        <div id="signupError" class="alert alert-danger py-2 d-none" role="alert"></div>
+        <form id="signupForm">
+          <div class="mb-3"><label for="signupName" class="form-label">Full name</label><input class="form-control" id="signupName" maxlength="100" required autocomplete="name"></div>
+          <div class="mb-3"><label for="signupEmail" class="form-label">Email address</label><input type="email" class="form-control" id="signupEmail" required autocomplete="email"></div>
+          <div class="mb-3"><label for="signupPassword" class="form-label">Password (at least 8 characters)</label><input type="password" class="form-control" id="signupPassword" minlength="8" required autocomplete="new-password"></div>
+          <button class="btn btn-mint w-100" id="signupBtn" type="submit">Create account &amp; send verification</button>
+        </form>
+        <div class="text-center mt-3"><button class="btn btn-link btn-sm" type="button" id="showLogin"><i class="bi bi-arrow-left me-1"></i>Back to Login</button></div>
+      </section>
     </div>
-    <p class="text-center text-muted small mt-4 mb-0">Students and admins sign in here. New registrations create student accounts only.</p>
   </div>
 </div>
+<style>
+  .login-flip-container{width:min(100%,460px);perspective:1200px;position:relative;z-index:1;transition:height .55s ease;}
+  .login-flip-inner{position:relative;width:100%;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.2,.75,.25,1);}
+  .login-flip-container.is-signup .login-flip-inner{transform:rotateY(180deg);}
+  .login-face{width:100%;max-width:none;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-sizing:border-box;}
+  .login-face-front{position:relative;}
+  .login-face-back{position:absolute;inset:0 auto auto 0;transform:rotateY(180deg);visibility:hidden;}
+  .login-flip-container.is-signup .login-face-front{visibility:hidden;}
+  .login-flip-container.is-signup .login-face-back{visibility:visible;}
+  .login-face .btn-link{color:#22d3ee;}
+  @media (prefers-reduced-motion:reduce){.login-flip-inner,.login-flip-container{transition:none;}}
+</style>
 
 <script type="module">
   import { loginUser, getUserProfile, showError, hideError } from "./auth.js";
   import { auth } from "./firebase-config.js";
-  import { onAuthStateChanged, createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { onAuthStateChanged, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { db } from "./firebase-config.js";
   import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -137,6 +148,52 @@ href="./favicon.svg">
     }
   });
 
+  // Send Firebase's secure password-reset email to the address in the login field.
+  document.getElementById("forgotPasswordBtn").addEventListener("click", async () => {
+    const emailInput = document.getElementById("email");
+    const email = emailInput.value.trim();
+    const message = document.getElementById("resetPasswordMessage");
+    hideError("loginError");
+    message.className = "alert py-2 d-none";
+    message.textContent = "";
+
+    if (!email) {
+      message.className = "alert alert-warning py-2";
+      message.textContent = "Enter your email address above, then click Forgot password? again.";
+      message.classList.remove("d-none");
+      emailInput.focus();
+      return;
+    }
+    if (!emailInput.checkValidity()) {
+      message.className = "alert alert-warning py-2";
+      message.textContent = "Please enter a valid email address.";
+      message.classList.remove("d-none");
+      emailInput.focus();
+      return;
+    }
+
+    const button = document.getElementById("forgotPasswordBtn");
+    button.disabled = true;
+    button.textContent = "Sending...";
+    try {
+      await sendPasswordResetEmail(auth, email);
+      message.className = "alert alert-success py-2";
+      message.textContent = "If an account exists for this email, a password-reset link has been sent. Check your inbox and spam folder.";
+    } catch (error) {
+      console.error("Password reset request failed:", error);
+      message.className = "alert alert-danger py-2";
+      message.textContent = error.code === "auth/invalid-email"
+        ? "Please enter a valid email address."
+        : error.code === "auth/too-many-requests"
+          ? "Too many requests. Please wait a while before trying again."
+          : "Could not send the reset email. Please try again later.";
+    } finally {
+      message.classList.remove("d-none");
+      button.disabled = false;
+      button.textContent = "Forgot password?";
+    }
+  });
+
   function friendlyAuthError(code) {
     switch (code) {
       case "auth/invalid-email":
@@ -153,9 +210,23 @@ href="./favicon.svg">
   }
 
 
-  document.getElementById("showSignup").addEventListener("click", () => {
-    document.getElementById("signupPanel").classList.toggle("d-none");
-    document.getElementById("signupPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+  const flipContainer = document.getElementById("loginFlipContainer");
+  const loginFace = document.getElementById("loginFace");
+  const signupPanel = document.getElementById("signupPanel");
+  function setAuthFace(showSignup) {
+    flipContainer.classList.toggle("is-signup", showSignup);
+    signupPanel.setAttribute("aria-hidden", String(!showSignup));
+    loginFace.setAttribute("aria-hidden", String(showSignup));
+    // Keep the wrapper matched to the visible face while preserving the flip animation.
+    const target = showSignup ? signupPanel : loginFace;
+    requestAnimationFrame(() => { flipContainer.style.height = `${target.scrollHeight}px`; });
+    if (showSignup) document.getElementById("signupName").focus({ preventScroll: true });
+  }
+  document.getElementById("showSignup").addEventListener("click", () => setAuthFace(true));
+  document.getElementById("showLogin").addEventListener("click", () => setAuthFace(false));
+  window.addEventListener("resize", () => {
+    const target = flipContainer.classList.contains("is-signup") ? signupPanel : loginFace;
+    flipContainer.style.height = `${target.scrollHeight}px`;
   });
   document.getElementById("signupForm").addEventListener("submit", async (e) => {
     e.preventDefault(); const btn=document.getElementById("signupBtn"), err=document.getElementById("signupError");
