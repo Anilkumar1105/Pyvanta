@@ -397,7 +397,10 @@ function renderCodingList(content) {
             ${q.external ? `<span class="badge bg-primary-subtle text-primary me-1">${escapeHtml(q.source || "External")}</span>${q.difficulty ? escapeHtml(q.difficulty) : ""}${q.rating ? ` &middot; Rating ${escapeHtml(q.rating)}` : ""}` : `${q.marks} marks`}
           </div>
         </div>
-        ${q.external ? `<a class="btn btn-sm btn-brand" href="${escapeHtml(q.externalUrl)}" target="_blank" rel="noopener noreferrer">Open Problem <i class="bi bi-box-arrow-up-right ms-1"></i></a>` : `<button class="btn btn-sm btn-brand" data-open-question="${q.id}">Practice <i class="bi bi-arrow-right ms-1"></i></button>`}
+        <div class="d-flex align-items-center flex-wrap justify-content-end gap-2 flex-shrink-0">
+          ${isCodingQuestionCompleted("learning", q.id) ? '<span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Completed</span>' : ''}
+          ${q.external ? `<a class="btn btn-sm btn-brand" href="${escapeHtml(q.externalUrl)}" target="_blank" rel="noopener noreferrer">Open Problem <i class="bi bi-box-arrow-up-right ms-1"></i></a>` : `<button class="btn btn-sm btn-brand" data-open-question="${q.id}">${isCodingQuestionCompleted("learning", q.id) ? 'Review' : 'Practice'} <i class="bi bi-arrow-right ms-1"></i></button>`}
+        </div>
       </div>`
     )
     .join("");

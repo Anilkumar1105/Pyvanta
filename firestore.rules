@@ -61,6 +61,17 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Student support tickets: students can create/read their own; admins respond.
+    match /supportRequests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.message.size() >= 8
+        && request.resource.data.message.size() <= 1500
+        && request.resource.data.status == 'open';
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     // exams/{examId}
     match /exams/{examId} {
       allow read: if isSignedIn();
