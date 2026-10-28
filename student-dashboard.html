@@ -87,6 +87,10 @@ href="./favicon.svg">
     <div id="streakChampionGrid" class="streak-champion-grid"></div>
   </section>
 
+  <section class="achievements-panel card mb-4" id="studentAchievementsSection" aria-live="polite">
+    <div class="card-body" id="studentAchievementsContent"><div class="text-muted small">Loading your achievements...</div></div>
+  </section>
+
   <div class="row g-3 mb-4" id="statCards"></div>
 
   <div id="bestLearnerSection" class="d-none mb-4">
@@ -290,6 +294,7 @@ href="./favicon.svg">
   import { generateReportPDF } from "./pdf-export.js";
   import { listActiveLevels, listProgressForStudent } from "./learning.js";
   import { recordDailyLogin, getMyDailyLearningActivity, calculateStreakStats, getStreakLeaderboard } from "./streak.js";
+  import { getAchievementSettings, renderAchievementPanel } from "./achievements.js";
 
   wireLogoutButtons();
   // Keep cached exam schedules synchronized when an admin changes them.
@@ -351,6 +356,7 @@ href="./favicon.svg">
     renderToppersCarousel();
     renderWeeklyCodingToppers();
     renderLearningPointsCard();
+    renderAchievements(learningProgress);
     renderStudentStreak();
     renderStreakChampions();
     renderAbsentExams(activeExams, submissions);
@@ -1128,6 +1134,29 @@ href="./favicon.svg">
     renderCodingToppers(document.getElementById("codingTopperGrid"), entries);
   }
 
+  /* ---------- Achievements and personal goals ---------- */
+  async function renderAchievements(learningProgress = []) {
+    const container = document.getElementById("studentAchievementsContent");
+    if (!container || !currentUser) return;
+    container.innerHTML = '<div class="text-muted small">Loading your achievements...</div>';
+    try {
+      const [pointsData, activity, settings] = await Promise.all([
+        getStudentPoints(currentUser.uid),
+        getMyDailyLearningActivity(currentUser.uid),
+        getAchievementSettings()
+      ]);
+      renderAchievementPanel(container, {
+        pointsData,
+        streakStats: calculateStreakStats(activity),
+        learningProgress,
+        settings
+      });
+    } catch (error) {
+      console.warn("Could not load student achievements", error);
+      container.innerHTML = '<div class="text-muted small">Achievements are temporarily unavailable. Please refresh the page.</div>';
+    }
+  }
+
   /* ---------- Learning Points card ---------- */
   async function renderLearningPointsCard() {
     const [data, subscription] = await Promise.all([
@@ -1178,6 +1207,20 @@ href="./favicon.svg">
 
 .personal-rank-card{display:flex;align-items:center;gap:16px;padding:14px 18px;margin:12px 0 16px;border:1px solid rgba(13,110,253,.15);border-radius:16px;background:linear-gradient(135deg,rgba(13,110,253,.08),rgba(255,193,7,.08));box-shadow:0 4px 14px rgba(0,0,0,.05)}
 .personal-rank-icon{font-size:2rem}.personal-rank-main{flex:1}.personal-rank-label{font-size:.72rem;font-weight:800;letter-spacing:.08em;color:#6c757d}.personal-rank-value{font-size:1.7rem;font-weight:900;line-height:1.1}.personal-rank-score{font-weight:700;color:#495057}.personal-rank-note{font-size:.9rem;font-weight:700;text-align:right;color:#495057}@media(max-width:576px){.personal-rank-card{align-items:flex-start}.personal-rank-note{display:none}}
+
+.achievements-panel{overflow:hidden;border:1px solid rgba(139,92,246,.35);background:linear-gradient(135deg,rgba(139,92,246,.07),rgba(34,211,238,.035))}
+.achievements-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
+.achievements-kicker{font-size:.72rem;letter-spacing:.12em;font-weight:800;color:#a78bfa;margin-bottom:5px}
+.achievement-count{display:grid;grid-template-columns:auto auto;align-items:center;column-gap:7px;padding:9px 13px;border:1px solid rgba(251,191,36,.28);border-radius:14px;background:rgba(251,191,36,.08);white-space:nowrap}
+.achievement-count i{grid-row:span 2;color:#fbbf24;font-size:1.25rem}.achievement-count strong{font-size:1.05rem}.achievement-count span{font-size:.68rem;color:var(--bs-secondary-color,#9ca3af)}
+.achievement-goal-banner{padding:14px 16px;border-radius:14px;background:rgba(139,92,246,.09);margin-bottom:16px}
+.achievement-track{height:6px;border-radius:999px;background:rgba(148,163,184,.2);overflow:hidden}.achievement-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#8b5cf6,#22d3ee);transition:width .25s ease}
+.achievement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.achievement-item{display:flex;gap:12px;align-items:flex-start;min-width:0;padding:14px;border:1px solid var(--bs-border-color,#2b3443);border-radius:14px;background:rgba(17,24,39,.45)}
+.achievement-item.is-locked{opacity:.78}.achievement-icon{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:12px;font-size:1.25rem;background:rgba(148,163,184,.12);color:#94a3b8}.achievement-icon.cyan{background:rgba(34,211,238,.13);color:#22d3ee}.achievement-icon.orange{background:rgba(251,146,60,.13);color:#fb923c}.achievement-icon.violet{background:rgba(167,139,250,.15);color:#a78bfa}.achievement-icon.gold{background:rgba(251,191,36,.14);color:#fbbf24}.achievement-icon.green{background:rgba(52,211,153,.13);color:#34d399}.achievement-icon.blue{background:rgba(96,165,250,.14);color:#60a5fa}
+.achievement-content{flex:1;min-width:0}.achievement-content strong{font-size:.92rem}.achievement-status{font-size:.7rem;white-space:nowrap;color:#94a3b8}.is-unlocked .achievement-status{color:#34d399;font-weight:700}.achievement-progress{text-align:right;font-size:.7rem;color:var(--bs-secondary-color,#9ca3af);margin-top:4px}
+@media(max-width:700px){.achievement-grid{grid-template-columns:1fr}.achievements-head{align-items:flex-start}.achievement-count{padding:7px 9px}}
+
 </style>
 </body>
 </html>

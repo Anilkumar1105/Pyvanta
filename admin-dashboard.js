@@ -62,7 +62,7 @@ import {
 import { generateReportPDF } from "./pdf-export.js";
 import { formatExamWindow, describeExamWindow, formatScheduleWindow, formatScheduleSections, isPass } from "./grading.js";
 import { auth, db } from "./firebase-config.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { listCodeSubmissionsForExam } from "./student.js";
 import {
   listLevels,
@@ -134,6 +134,7 @@ requireRole("admin", async (user, profile) => {
   document.getElementById("adminName").textContent = profile.name || profile.email;
   populateSectionControls();
   await loadEverything();
+  await loadAchievementSettings();
 });
 
 async function loadEverything() {
@@ -201,6 +202,60 @@ document.querySelectorAll(".app-sidebar .nav-link").forEach((link) => {
 
 document.getElementById("sidebarToggle").addEventListener("click", () => {
   document.getElementById("appSidebar").classList.toggle("show");
+});
+
+/* ============================================================
+   ACHIEVEMENT SETTINGS (ADMIN)
+   ============================================================ */
+const ACHIEVEMENT_SETTINGS_DEFAULTS = { codingBadgeCount: 25, streakBadgeDays: 7, pointsBadgeTarget: 500, weeklyGoalQuestions: 5 };
+async function loadAchievementSettings() {
+  const form = document.getElementById("achievementSettingsForm");
+  if (!form) return;
+  try {
+    const snap = await getDoc(doc(db, "appSettings", "achievementSettings"));
+    const settings = snap.exists() ? { ...ACHIEVEMENT_SETTINGS_DEFAULTS, ...snap.data() } : ACHIEVEMENT_SETTINGS_DEFAULTS;
+    document.getElementById("achievementCodingCount").value = settings.codingBadgeCount;
+    document.getElementById("achievementStreakDays").value = settings.streakBadgeDays;
+    document.getElementById("achievementPointsTarget").value = settings.pointsBadgeTarget;
+    document.getElementById("achievementWeeklyGoal").value = settings.weeklyGoalQuestions;
+  } catch (error) {
+    console.warn("Could not load achievement settings", error);
+    setAchievementSettingsMessage("Could not load settings. Defaults are shown.", false);
+  }
+}
+function setAchievementSettingsMessage(message, success) {
+  const el = document.getElementById("achievementSettingsMessage");
+  if (!el) return;
+  el.textContent = message;
+  el.className = `small ${success ? "text-success" : "text-danger"}`;
+}
+document.getElementById("achievementSettingsForm")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = document.getElementById("saveAchievementSettingsBtn");
+  const values = {
+    codingBadgeCount: Number(document.getElementById("achievementCodingCount").value),
+    streakBadgeDays: Number(document.getElementById("achievementStreakDays").value),
+    pointsBadgeTarget: Number(document.getElementById("achievementPointsTarget").value),
+    weeklyGoalQuestions: Number(document.getElementById("achievementWeeklyGoal").value),
+    updatedAt: new Date().toISOString()
+  };
+  if (!Number.isInteger(values.codingBadgeCount) || values.codingBadgeCount < 1 || values.codingBadgeCount > 10000 ||
+      !Number.isInteger(values.streakBadgeDays) || values.streakBadgeDays < 1 || values.streakBadgeDays > 365 ||
+      !Number.isInteger(values.pointsBadgeTarget) || values.pointsBadgeTarget < 201 || values.pointsBadgeTarget > 100000 ||
+      !Number.isInteger(values.weeklyGoalQuestions) || values.weeklyGoalQuestions < 1 || values.weeklyGoalQuestions > 7) {
+    setAchievementSettingsMessage("Check the milestone values and try again.", false);
+    return;
+  }
+  button.disabled = true;
+  try {
+    await setDoc(doc(db, "appSettings", "achievementSettings"), values, { merge: true });
+    setAchievementSettingsMessage("Achievement settings saved. Students will see the updated goals when they refresh.", true);
+  } catch (error) {
+    console.error("Could not save achievement settings", error);
+    setAchievementSettingsMessage("Save failed. Confirm Firestore rules allow admins to write appSettings.", false);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 /* ============================================================
