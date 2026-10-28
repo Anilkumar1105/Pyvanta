@@ -208,7 +208,7 @@ function renderQuestionDetail(q, points) {
       (ex, i) => `
       <div class="mb-2">
         <div class="small text-white-50">Sample ${i + 1}</div>
-        <div class="testcase-result">Input:\n${escapeHtml(ex.input || "")}\n\nOutput:\n${escapeHtml(ex.output || "")}</div>
+        <div class="testcase-result">Input:\n${escapeHtml(ex.input || "")}\n\nOutput:\n${escapeHtml(ex.output || ex.expectedOutput || ex.expected_output || ex.outputText || ex.out || "")}</div>
       </div>`
     )
     .join("");

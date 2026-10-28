@@ -22,7 +22,6 @@ import { recordDailyLogin, recordLearningProblemSolved } from "./streak.js";
 import { ensurePyodide, runAllTestCases } from "./python-runner.js";
 import { computeCodingMarks } from "./grading.js";
 import { awardPointsForCompletedQuestion } from "./points.js";
-import { renderCodeVisualizations } from "./code-visualizations.js";
 
 wireLogoutButtons();
 
@@ -89,8 +88,7 @@ function renderNav() {
   const items = [
     ...conceptRows.map((c, i) => ({ kind: "concept", id: c.id, label: `${i + 1}. ${c.title}`, status: c.status })),
     { kind: "mcq", id: "mcq", label: "MCQ Test", status: mcqStatus },
-    { kind: "coding", id: "coding", label: "Coding Practice", status: codingStatus },
-    { kind: "visualizations", id: "visualizations", label: "Code Visualizations Lab", status: "unlocked" }
+    { kind: "coding", id: "coding", label: "Coding Practice", status: codingStatus }
   ];
 
   nav.innerHTML = items
@@ -125,7 +123,6 @@ function renderContent() {
   if (view.type === "mcq") return renderMcq(content);
   if (view.type === "coding") return renderCodingList(content);
   if (view.type === "codingQuestion") return renderCodingQuestion(content);
-  if (view.type === "visualizations") return renderVisualizations(content);
 }
 
 function escapeHtml(str) {
@@ -149,11 +146,6 @@ function markCodingQuestionCompleted(section, questionId) {
     completed.add(questionId);
     localStorage.setItem(key, JSON.stringify([...completed]));
   } catch (err) { console.warn("Could not save question completion status", err); }
-}
-
-/* ---------- Interactive Code Visualizations ---------- */
-function renderVisualizations(content) {
-  renderCodeVisualizations(content);
 }
 
 /* ---------- Concepts ---------- */
@@ -441,7 +433,7 @@ function renderCodingQuestion(content) {
         </div>
         <div class="sample-io-block">
           <div class="sample-io-label">Expected Output</div>
-          <pre class="sample-io-value">${escapeHtml(ex.output || "")}</pre>
+          <pre class="sample-io-value">${escapeHtml(ex.output || ex.expectedOutput || ex.expected_output || ex.outputText || ex.out || "")}</pre>
         </div>
       </section>`
     )
