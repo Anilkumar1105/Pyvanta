@@ -167,11 +167,21 @@ export async function getSubmission(examId, studentId) {
 
 /** Creates the submission doc the moment a student starts an exam. */
 export async function startSubmission(examId, student, maxViolations) {
-  const id = submissionId(examId, student.uid);
+  // The profile document may not contain the Firebase Authentication UID.
+  // Require the UID explicitly so we never write a submission with undefined
+  // studentId or create a document whose ID ends in "_undefined".
+  const studentId = student?.uid;
+  if (typeof studentId !== "string" || !studentId.trim()) {
+    throw new Error("Cannot start exam: the signed-in student's Firebase UID is missing. Please sign out and sign in again.");
+  }
+  if (typeof examId !== "string" || !examId.trim()) {
+    throw new Error("Cannot start exam: exam ID is missing. Please reopen the exam from your dashboard.");
+  }
+  const id = submissionId(examId, studentId);
   const startTime = new Date().toISOString();
   const result = await setDoc(doc(db, "submissions", id), {
     examId,
-    studentId: student.uid,
+    studentId: studentId,
     rollNumber: student.rollNumber,
     section: student.section,
     answers: {},
@@ -186,14 +196,14 @@ export async function startSubmission(examId, student, maxViolations) {
   const submission = {
     id,
     examId,
-    studentId: student.uid,
+    studentId: studentId,
     rollNumber: student.rollNumber,
     section: student.section,
     answers: {}, score: null, percentage: null, violations: 0, maxViolations,
     status: "in-progress", startedAt: startTime, submittedAt: null
   };
-  setCachedDoc(`user:${student.uid}:col:submissions:doc:${id}`, id, submission, true);
-  upsertCachedQueryDoc(`user:${student.uid}:col:submissions`, id, submission);
+  setCachedDoc(`user:${studentId}:col:submissions:doc:${id}`, id, submission, true);
+  upsertCachedQueryDoc(`user:${studentId}:col:submissions`, id, submission);
   return result;
 }
 

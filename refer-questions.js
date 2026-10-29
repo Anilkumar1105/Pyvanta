@@ -161,7 +161,7 @@ async function handleStart() {
 
   let submission = await getSubmission(examId, currentUser.uid);
   if (!submission) {
-    await startSubmission(examId, studentProfile, maxViolations);
+    await startSubmission(examId, { ...studentProfile, uid: currentUser.uid }, maxViolations);
     submission = await getSubmission(examId, currentUser.uid);
   }
 

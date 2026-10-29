@@ -210,7 +210,7 @@ async function handleStart() {
   let submission = existingSubmission;
   if (!submission) {
     const startedAt = new Date().toISOString();
-    await startSubmission(examId, studentProfile, maxViolations);
+    await startSubmission(examId, { ...studentProfile, uid: currentUser.uid }, maxViolations);
     // Avoid a second Firestore read immediately after creating the submission.
     // We already know the exact fields needed to initialize this browser session.
     submission = {
