@@ -5,6 +5,7 @@
 // submission history), and final MCQ + coding score aggregation.
 
 import { requireRole, wireLogoutButtons } from "./auth.js";
+import { auth } from "./firebase-config.js";
 import {
   getExamById,
   getQuestionsForExam,
@@ -72,8 +73,12 @@ requireRole("student", async (user, profile) => {
   if (examLoadInProgress || exam) return;
   examLoadInProgress = true;
 
-  currentUser = user;
+  currentUser = user?.uid ? user : auth.currentUser;
   studentProfile = profile;
+  if (!currentUser?.uid) {
+    showStartError("Your Firebase sign-in session could not be identified. Please sign out, sign in again, then reopen the exam.");
+    return;
+  }
 
   try {
     await loadExam();
@@ -207,15 +212,26 @@ async function handleStart() {
     return;
   }
 
+  // Resolve the UID from Firebase Auth again at the point of use. This also
+  // protects against stale page state or an outdated profile object.
+  const studentUid = currentUser?.uid || auth.currentUser?.uid;
+  if (!studentUid) {
+    examStartInProgress = false;
+    if (startButton) { startButton.disabled = false; startButton.removeAttribute("aria-disabled"); }
+    showStartError("Your Firebase sign-in session is missing. Please sign out, sign in again, and reopen the exam.");
+    return;
+  }
+  currentUser = currentUser?.uid ? currentUser : auth.currentUser;
+
   let submission = existingSubmission;
   if (!submission) {
     const startedAt = new Date().toISOString();
-    await startSubmission(examId, { ...studentProfile, uid: currentUser.uid }, maxViolations);
+    await startSubmission(examId, { ...studentProfile, uid: studentUid }, maxViolations);
     // Avoid a second Firestore read immediately after creating the submission.
     // We already know the exact fields needed to initialize this browser session.
     submission = {
       examId,
-      studentId: currentUser.uid,
+      studentId: studentUid,
       rollNumber: studentProfile.rollNumber,
       section: studentProfile.section,
       answers: {},

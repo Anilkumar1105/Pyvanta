@@ -5,6 +5,7 @@
 // submission history), and final MCQ + coding score aggregation.
 
 import { requireRole, wireLogoutButtons } from "./auth.js";
+import { auth } from "./firebase-config.js";
 import {
   getExamById,
   getQuestionsForExam,
@@ -54,8 +55,12 @@ if (!examId) {
 }
 
 requireRole("student", async (user, profile) => {
-  currentUser = user;
+  currentUser = user?.uid ? user : auth.currentUser;
   studentProfile = profile;
+  if (!currentUser?.uid) {
+    showStartError("Your Firebase sign-in session could not be identified. Please sign out, sign in again, then reopen the exam.");
+    return;
+  }
   await loadExam();
 });
 
@@ -159,10 +164,17 @@ async function handleStart() {
     return;
   }
 
-  let submission = await getSubmission(examId, currentUser.uid);
+  const studentUid = currentUser?.uid || auth.currentUser?.uid;
+  if (!studentUid) {
+    showStartError("Your Firebase sign-in session is missing. Please sign out, sign in again, and reopen the exam.");
+    return;
+  }
+  currentUser = currentUser?.uid ? currentUser : auth.currentUser;
+
+  let submission = await getSubmission(examId, studentUid);
   if (!submission) {
-    await startSubmission(examId, { ...studentProfile, uid: currentUser.uid }, maxViolations);
-    submission = await getSubmission(examId, currentUser.uid);
+    await startSubmission(examId, { ...studentProfile, uid: studentUid }, maxViolations);
+    submission = await getSubmission(examId, studentUid);
   }
 
   answers = submission.answers || {};
