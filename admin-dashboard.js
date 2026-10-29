@@ -707,21 +707,19 @@ function populateSectionControls() {
 function renderStudentsTable() {
   const filtered = students
     .slice()
-    .sort((a, b) => String(a.rollNumber).localeCompare(String(b.rollNumber), undefined, { numeric: true, sensitivity: "base" }));
+    .sort((a, b) => String(a.name || a.email || "").localeCompare(String(b.name || b.email || ""), undefined, { sensitivity: "base" }));
   const tbody = document.getElementById("studentsTableBody");
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No students in this section yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No students in this section yet.</td></tr>`;
   } else {
     tbody.innerHTML = filtered
       .map(
         (s) => `
         <tr>
-          <td>${s.rollNumber}</td>
-          <td>${s.name}</td>
-          <td><span class="badge bg-secondary">${s.section}</span></td>
+          <td>${escapeHtmlL(s.name || "Student")}</td>
           <td>
-            <span>${s.email}</span>
+            <span>${escapeHtmlL(s.email || "")}</span>
             <button class="btn btn-sm btn-link p-0 ms-1" data-copy-email="${s.uid}" title="Copy email" aria-label="Copy email"><i class="bi bi-clipboard"></i></button>
           </td>
           <td>
@@ -769,10 +767,8 @@ function wireStudentExportButtons(filtered) {
   const title =
     currentSectionFilter === "all" ? "All Students Report" : `Section ${currentSectionFilter} Students Report`;
   const columns = [
-    { key: "rollNumber", label: "Roll Number", width: 14, type: "text" },
-    { key: "name", label: "Name", width: 22, type: "text" },
-    { key: "section", label: "Section", width: 10, type: "text" },
-    { key: "email", label: "Email", width: 28, type: "text" },
+    { key: "name", label: "Name", width: 28, type: "text" },
+    { key: "email", label: "Email", width: 38, type: "text" },
     { key: "passwordPlain", label: "Password", width: 18, type: "text" }
   ];
   // Fall back to a readable label instead of a blank cell for students
