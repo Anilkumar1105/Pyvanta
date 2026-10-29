@@ -427,3 +427,7 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
 .learning-body #learningContent .alert.alert-success i {
   color: #065F46 !important;
 }
+h1, h2, h3, h4, h5, h6 {
+    color: var(--pv-text) !important;
+    letter-spacing: -0.025em;
+}
