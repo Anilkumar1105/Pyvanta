@@ -180,7 +180,7 @@ href="./favicon.svg">
     </div>
   </div>
 
-  <h5 class="mb-3"><i class="bi bi-journal-code me-1"></i>Available Exams</h5>
+  <h5 class="mb-3 d-flex align-items-center gap-2"><span><i class="bi bi-journal-code me-1"></i>Available Exams</span><span id="availableExamCount" class="badge rounded-pill text-bg-primary" aria-live="polite">0</span></h5>
   <div id="examsList" class="row g-3 mb-4">
     <div class="col-12 text-muted">Fetching your exams...</div>
   </div>
@@ -391,9 +391,14 @@ href="./favicon.svg">
   /* ---------- Stats ---------- */
   function renderStats(activeExams, submissions) {
     const completed = submissions.filter((s) => s.status === "submitted" || s.status === "auto-submitted");
-    const upcoming = activeExams.filter(
-      (e) => computeExamAccessStatus(e, findSubmissionForExam(submissions, e.id), schedulesByExamId[e.id] || [], studentProfile.section) === "upcoming"
+    const getStatus = (exam) => computeExamAccessStatus(
+      exam,
+      findSubmissionForExam(submissions, exam.id),
+      schedulesByExamId[exam.id] || [],
+      studentProfile.section
     );
+    const availableNow = activeExams.filter((exam) => getStatus(exam) === "active").length;
+    const upcoming = activeExams.filter((exam) => getStatus(exam) === "upcoming");
     const totalExamIds = new Set([...activeExams.map((e) => e.id), ...submissions.map((s) => s.examId)]);
     const visibleCompleted = completed.filter((s) => examById[s.examId]?.showResult !== false && s.percentage != null);
     const absentActive = activeExams
@@ -415,6 +420,7 @@ href="./favicon.svg">
 
     const cards = [
       { label: "Total Exams", value: totalExamIds.size, icon: "bi-journal-code", color: "#4f46e5" },
+      { label: "Available Now", value: availableNow, icon: "bi-play-circle-fill", color: "#06b6d4" },
       { label: "Completed", value: completed.length, icon: "bi-check2-circle", color: "#0ea5e9" },
       { label: "Upcoming Exams", value: upcoming.length, icon: "bi-calendar-event", color: "#f59e0b" },
       { label: "Average Score", value: `${avg}%`, icon: "bi-bar-chart-fill", color: "#8b5cf6" },
@@ -494,6 +500,13 @@ href="./favicon.svg">
   /* ---------- Available exams ---------- */
   function renderExams(exams, submissions) {
     const container = document.getElementById("examsList");
+    const availableCount = exams.filter((exam) => {
+      const submission = findSubmissionForExam(submissions, exam.id);
+      const schedules = filterSchedulesForSection(schedulesByExamId[exam.id] || [], studentProfile.section);
+      return computeExamAccessStatus(exam, submission, schedules, studentProfile.section) === "active";
+    }).length;
+    const countBadge = document.getElementById("availableExamCount");
+    if (countBadge) countBadge.textContent = String(availableCount);
 
     if (!exams.length) {
       container.innerHTML = `<div class="col-12 text-center text-muted py-5">No exams are available right now.</div>`;
