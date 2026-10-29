@@ -3,7 +3,7 @@
 ## Included
 - Pyvanta dark theme tokens: Jet Black `#050505`, Royal Amethyst `#6633AA`, Electric Cyan `#00E5FF`.
 - Subscription plans: Starter ₹149 / 60 days; Pro ₹299 / 180 days; Premium ₹499 / 360 days.
-- Email/password student signup with Firebase email verification. New self-registrations are student-only. Existing login accounts remain able to sign in; payment activation requires verified email.
+- Email/password student signup. New students are signed in immediately and can open the dashboard without verifying email. Email verification is required before submitting a subscription payment request. New self-registrations are student-only. Password reset uses Firebase Auth email.
 - UPI intent + QR generated in the browser after configuring the merchant UPI ID.
 - Payment requests stored in `subscriptionRequests`; admin approval creates/extends `subscriptions/{uid}`.
 - Premium student pages redirect to the subscription page when there is no active subscription. Student dashboard remains accessible for history and renewal.
@@ -42,3 +42,16 @@ Current plan policy (2026-10):
 - Starter (₹149 / 60 days): regular learning sections and MCQ/mock tests; Special Coding Section unlocks at 200 Learning Points.
 - Pro (₹299 / 180 days): Starter features plus direct Special Coding Section access without the point threshold.
 - Premium (₹499 / 360 days): Pro features, all special sections, and Code Visualizations Lab. SQLite sessions are planned for Premium within 1–2 months and are not live yet.
+
+
+## Updated student account flow
+1. Student creates an account with name, email and password.
+2. Pyvanta creates Firebase Authentication user and `users/{uid}` student profile, then redirects directly to the student dashboard. No verification email is sent at signup.
+3. Student can use dashboard and free features. Premium pages remain subscription-gated.
+4. When the student submits a subscription request, Pyvanta sends a verification email if `currentUser.emailVerified` is false. Student opens the link, returns to Pyvanta, signs in again (or reloads after Firebase user reload), and submits payment request.
+5. Admin verifies the actual UPI payment and approves the request.
+6. Forgot password sends Firebase's password-reset email to the entered address.
+7. If a legacy Authentication account has no `users/{uid}` document, login attempts to create a student-only profile from its Firebase display name/email. This never grants admin role. Existing admin accounts must retain their admin profile.
+
+## Email inbox / spam delivery note
+The application cannot force an email provider to put a message in Inbox rather than Spam. Firebase Auth emails may be filtered by the recipient's provider. In Firebase Console, customize the Authentication email templates and sender/domain where supported, use a domain you control, and configure SPF, DKIM and DMARC for that domain/provider. Test with Gmail, Outlook and institutional email accounts. Tell users to check Spam/Promotions and allowlist the sender. Avoid repeated resend attempts because they can trigger rate limits. Never store SMTP credentials in frontend files.

@@ -70,13 +70,13 @@ href="./favicon.svg">
           <h4 class="fw-bold mb-1">Create your student account</h4>
           <p class="text-muted small mb-0">Join Pyvanta and start learning Python.</p>
         </div>
-        <p class="small text-muted">Use a valid email. You must verify it before requesting a subscription.</p>
+        <p class="small text-muted">Create your account and start learning immediately. Email verification is required only when you request a subscription.</p>
         <div id="signupError" class="alert alert-danger py-2 d-none" role="alert"></div>
         <form id="signupForm">
           <div class="mb-3"><label for="signupName" class="form-label">Full name</label><input class="form-control" id="signupName" maxlength="100" required autocomplete="name"></div>
           <div class="mb-3"><label for="signupEmail" class="form-label">Email address</label><input type="email" class="form-control" id="signupEmail" required autocomplete="email"></div>
           <div class="mb-3"><label for="signupPassword" class="form-label">Password (at least 8 characters)</label><input type="password" class="form-control" id="signupPassword" minlength="8" required autocomplete="new-password"></div>
-          <button class="btn btn-mint w-100" id="signupBtn" type="submit">Create account &amp; send verification</button>
+          <button class="btn btn-mint w-100" id="signupBtn" type="submit">Create account &amp; continue to learning</button>
         </form>
         <div class="text-center mt-3"><button class="btn btn-link btn-sm" type="button" id="showLogin"><i class="bi bi-arrow-left me-1"></i>Back to Login</button></div>
       </section>
@@ -99,7 +99,7 @@ href="./favicon.svg">
 <script type="module">
   import { loginUser, getUserProfile, showError, hideError } from "./auth.js";
   import { auth } from "./firebase-config.js";
-  import { onAuthStateChanged, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { db } from "./firebase-config.js";
   import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -134,14 +134,20 @@ href="./favicon.svg">
       const cred = await loginUser(email, password);
       const profile = await getUserProfile(cred.user.uid);
 
-      if (!profile) {
-        showError("loginError", "No profile found for this account. Contact your admin.");
-        setLoading(false);
-        return;
+      // Older accounts may exist in Firebase Authentication without users/{uid}.
+      // Safely repair the missing profile as a student; never grant admin privileges here.
+      let resolvedProfile = profile;
+      if (!resolvedProfile) {
+        const name = (cred.user.displayName || email.split("@")[0] || "Student").trim();
+        await setDoc(doc(db, "users", cred.user.uid), {
+          name, email: cred.user.email || email, role: "student",
+          createdAt: serverTimestamp(), emailVerified: !!cred.user.emailVerified,
+          subscriptionStatus: "inactive", profileRepairedAt: serverTimestamp()
+        });
+        resolvedProfile = await getUserProfile(cred.user.uid);
       }
-
-      window.location.href =
-        profile.role === "admin" ? "admin-dashboard.html" : "student-dashboard.html";
+      if (!resolvedProfile) throw new Error("PROFILE_REPAIR_FAILED");
+      window.location.href = resolvedProfile.role === "admin" ? "admin-dashboard.html" : "student-dashboard.html";
     } catch (err) {
       showError("loginError", friendlyAuthError(err.code));
       setLoading(false);
@@ -186,7 +192,7 @@ href="./favicon.svg">
         ? "Please enter a valid email address."
         : error.code === "auth/too-many-requests"
           ? "Too many requests. Please wait a while before trying again."
-          : "Could not send the reset email. Please try again later.";
+          : "Could not send the reset email. Check the address and try again later.";
     } finally {
       message.classList.remove("d-none");
       button.disabled = false;
@@ -235,14 +241,20 @@ href="./favicon.svg">
     try {
       const credential=await createUserWithEmailAndPassword(auth,email,password);
       await updateProfile(credential.user,{displayName:name});
-      await setDoc(doc(db,"users",credential.user.uid),{name,email,role:"student",createdAt:serverTimestamp(),emailVerified:false,subscriptionStatus:"inactive"});
-      await sendEmailVerification(credential.user);
-      await auth.signOut();
-      err.className="alert alert-success py-2"; err.textContent="Account created. Check your inbox and verify your email, then log in to choose a subscription."; err.classList.remove("d-none");
+      await setDoc(doc(db,"users",credential.user.uid),{
+        name, email:credential.user.email || email, role:"student",
+        createdAt:serverTimestamp(), emailVerified:false, subscriptionStatus:"inactive"
+      });
+      // Do not require email verification for first login. The user is already
+      // signed in after createUserWithEmailAndPassword; go directly to dashboard.
+      err.className="alert alert-success py-2";
+      err.textContent="Account created successfully. You are signed in and can start learning now. Verify your email when you request a subscription.";
+      err.classList.remove("d-none");
       document.getElementById("signupForm").reset();
+      window.location.href="student-dashboard.html";
     } catch (error) {
       console.error(error); err.textContent=error.code==="auth/email-already-in-use"?"This email is already registered. Please log in.":error.code==="auth/weak-password"?"Choose a stronger password (at least 8 characters).":"Could not create account. Check the email and Firebase configuration, then try again."; err.className="alert alert-danger py-2"; err.classList.remove("d-none");
-    } finally {btn.disabled=false;btn.textContent="Create account & send verification";}
+    } finally {btn.disabled=false;btn.textContent="Create account & continue to learning";}
   });
 
   // Show/hide password toggle - purely presentational, doesn't touch login logic above.
