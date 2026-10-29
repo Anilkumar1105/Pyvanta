@@ -97,7 +97,7 @@ href="./favicon.svg">
 </style>
 
 <script type="module">
-  import { loginUser, getUserProfile, showError, hideError } from "./auth.js";
+  import { loginUser, getUserProfile, getOrRepairUserProfile, showError, hideError } from "./auth.js";
   import { auth } from "./firebase-config.js";
   import { onAuthStateChanged, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { db } from "./firebase-config.js";
@@ -106,10 +106,12 @@ href="./favicon.svg">
   // If already logged in, skip the login form.
   onAuthStateChanged(auth, async (user) => {
     if (!user) return;
-    const profile = await getUserProfile(user.uid);
-    if (profile) {
+    try {
+      const profile = await getOrRepairUserProfile(user);
       window.location.href =
         profile.role === "admin" ? "admin-dashboard.html" : "student-dashboard.html";
+    } catch (error) {
+      console.error("Existing-session profile load failed:", error.code || error.message, error);
     }
   });
 
@@ -132,13 +134,7 @@ href="./favicon.svg">
 
     try {
       const cred = await loginUser(email, password);
-      const profile = await getUserProfile(cred.user.uid);
-
-      if (!profile) {
-        showError("loginError", "No profile found for this account. Contact your admin.");
-        setLoading(false);
-        return;
-      }
+      const profile = await getOrRepairUserProfile(cred.user);
 
       window.location.href =
         profile.role === "admin" ? "admin-dashboard.html" : "student-dashboard.html";
@@ -235,13 +231,27 @@ href="./favicon.svg">
     try {
       const credential=await createUserWithEmailAndPassword(auth,email,password);
       await updateProfile(credential.user,{displayName:name});
-      await setDoc(doc(db,"users",credential.user.uid),{name,email,role:"student",createdAt:serverTimestamp(),emailVerified:false,subscriptionStatus:"inactive"});
-      await sendEmailVerification(credential.user);
+      // Profile creation is required, but if it fails the account remains recoverable
+      // through getOrRepairUserProfile on the next successful login.
+      await setDoc(doc(db,"users",credential.user.uid),{
+        uid: credential.user.uid, name, email: email.toLowerCase(), role:"student",
+        createdAt:serverTimestamp(), emailVerified:Boolean(credential.user.emailVerified),
+        subscriptionStatus:"inactive"
+      });
+      let verificationWarning = "";
+      try { await sendEmailVerification(credential.user); }
+      catch (mailError) { console.error("Verification email failed:", mailError); verificationWarning = " Your account was created, but the verification email could not be sent; use resend verification later."; }
       await auth.signOut();
-      err.className="alert alert-success py-2"; err.textContent="Account created. Check your inbox and verify your email, then log in to choose a subscription."; err.classList.remove("d-none");
+      err.className="alert alert-success py-2"; err.textContent="Account created successfully." + (verificationWarning || " Check your inbox and verify your email, then log in to choose a subscription."); err.classList.remove("d-none");
       document.getElementById("signupForm").reset();
     } catch (error) {
-      console.error(error); err.textContent=error.code==="auth/email-already-in-use"?"This email is already registered. Please log in.":error.code==="auth/weak-password"?"Choose a stronger password (at least 8 characters).":"Could not create account. Check the email and Firebase configuration, then try again."; err.className="alert alert-danger py-2"; err.classList.remove("d-none");
+      console.error("Signup flow failed:", error.code || error.message, error);
+      // If Auth creation succeeded but profile write failed, sign out and explain recovery.
+      if (auth.currentUser) {
+        try { await auth.signOut(); } catch (signOutError) { console.error("Signup cleanup sign-out failed:", signOutError); }
+      }
+      const message = error.code === "auth/email-already-in-use" ? "This email is already registered. Please log in; if the profile is missing, login will attempt to repair it." : error.code === "auth/weak-password" ? "Choose a stronger password (at least 8 characters)." : error.code === "permission-denied" ? "Authentication account may have been created, but Firestore rejected the student profile. Check deployed Firestore rules; log in again to attempt profile recovery." : "Account setup did not finish. Check the console error. If the account was created, log in again to attempt profile recovery.";
+      err.textContent=message; err.className="alert alert-danger py-2"; err.classList.remove("d-none");
     } finally {btn.disabled=false;btn.textContent="Create account & send verification";}
   });
 

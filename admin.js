@@ -39,15 +39,8 @@ export const SECTIONS = ["IT-A", "IT-B", "IT-C", "AIDS-A", "AIDS-B", "CYS", "AIM
  * password the admin typed in, and writes the profile document to
  * users/{uid}.
  *
- * SECURITY NOTE: `password` is also stored in Firestore as
- * `passwordPlain` so it can be shown back to the admin later (per
- * product requirement). This is a deliberate weakening of the earlier
- * "never store plaintext passwords" design - Firestore is not a
- * credential store, and anyone with read access to a student's user
- * doc (any signed-in admin) can read it in plaintext. Firebase
- * Authentication itself never exposes the real password back to
- * anyone, including admins, so `passwordPlain` is only ever a "last
- * known value" - see updateStudent() for why it can silently go stale.
+ * Passwords are never persisted to Firestore. Firebase Authentication
+ * does not expose existing passwords; use sendStudentPasswordReset().
  */
 export async function addStudent({ name, rollNumber, section, email, password }) {
   const trimmedPassword = String(password || "").trim();
@@ -70,8 +63,7 @@ export async function addStudent({ name, rollNumber, section, email, password })
     name,
     rollNumber,
     section,
-    email,
-    passwordPlain: trimmedPassword,
+    email: String(email || "").trim().toLowerCase(),
     role: "student",
     createdAt: new Date().toISOString()
   });
@@ -81,14 +73,8 @@ export async function addStudent({ name, rollNumber, section, email, password })
 }
 
 /**
- * Updates a student's profile fields. If `password` is provided, the
- * stored `passwordPlain` reference is updated too - but this does NOT
- * change the student's real Firebase Authentication password (the
- * client SDK cannot overwrite another user's password without the
- * Admin SDK). If the student ever uses "Send Password Reset Email" to
- * set their own new password, `passwordPlain` here will no longer
- * match what actually logs them in. Treat this field as "the password
- * we last set for them," not as a live mirror of their real credential.
+ * Updates profile fields. Password changes must use the secure password-reset
+ * flow; the client SDK cannot change another user's password directly.
  */
 export async function updateStudent(uid, { name, rollNumber, section, password }) {
   if (!uid) throw new Error("Student UID is missing. Reload the Students list and try again.");
@@ -107,8 +93,8 @@ export async function updateStudent(uid, { name, rollNumber, section, password }
     data.email = authEmail;
     data.createdAt = new Date().toISOString();
   }
-  const trimmed = password ? String(password).trim() : "";
-  if (trimmed) data.passwordPlain = trimmed;
+  // Never store the entered password in Firestore. The dashboard should
+  // use its password-reset action for credential recovery.
   await setDoc(studentRef, data, { merge: true });
   invalidateCollection("users");
   invalidateCache(`user:${uid}:col:users:doc:${uid}`);

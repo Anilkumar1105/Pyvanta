@@ -10,7 +10,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   doc,
-  getDoc
+  getDoc,
+  setDoc,
+  runTransaction,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /** Log in with email/password. Returns the Firebase user credential. */
@@ -26,11 +29,44 @@ export async function logoutUser() {
 
 /** Fetch the Firestore profile (users/{uid}) for a given uid. */
 export async function getUserProfile(uid) {
-  // Always read the role/profile document directly. A cached "not found"
-  // result from before an admin profile was created can otherwise keep
-  // the login screen showing "No profile found" after the document exists.
+  // Always read the canonical UID document directly (never use email as doc ID).
   const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() ? snap.data() : null;
+  return snap.exists() ? { ...snap.data(), uid } : null;
+}
+
+/**
+ * Recover a missing student profile after successful Firebase Authentication.
+ * Firestore rules must allow an owner to create only their own role=student profile.
+ * This deliberately never creates or changes an admin role.
+ */
+export async function getOrRepairUserProfile(user) {
+  if (!user?.uid) throw new Error("A signed-in account is required to load the profile.");
+  let profile = await getUserProfile(user.uid);
+  if (profile) return { ...profile, emailVerified: Boolean(user.emailVerified) };
+
+  const email = String(user.email || "").trim().toLowerCase();
+  if (!email) throw new Error("This account has no email address. Contact support.");
+  const name = String(user.displayName || email.split("@")[0] || "Student").trim();
+  const profileRef = doc(db, "users", user.uid);
+  const recovered = {
+    uid: user.uid,
+    name,
+    email,
+    role: "student",
+    emailVerified: Boolean(user.emailVerified),
+    subscriptionStatus: "inactive",
+    createdAt: serverTimestamp(),
+    profileRecoveredAt: serverTimestamp()
+  };
+  // Transaction prevents racing login listeners from overwriting a profile
+  // created by another request/admin between the initial read and write.
+  await runTransaction(db, async (transaction) => {
+    const current = await transaction.get(profileRef);
+    if (!current.exists()) transaction.set(profileRef, recovered);
+  });
+  profile = await getUserProfile(user.uid);
+  if (!profile) throw new Error("Profile recovery did not complete. Please retry or contact support.");
+  return { ...profile, emailVerified: Boolean(user.emailVerified) };
 }
 
 /**
@@ -57,10 +93,14 @@ export function requireRole(expectedRole, onReady) {
       stopRemoteCacheWatch = null;
     }
 
-    const profile = await getUserProfile(user.uid);
-
-    if (!profile) {
-      alert("No profile was found for this account. Please contact your admin.");
+    let profile;
+    try {
+      profile = await getOrRepairUserProfile(user);
+    } catch (error) {
+      console.error("Profile load/recovery failed:", error.code || error.message, error);
+      alert(error.code === "permission-denied"
+        ? "Your account signed in, but Firestore rules blocked profile recovery. Please contact support."
+        : "Your account signed in, but its profile could not be loaded. Please retry; your account has not been deleted.");
       await logoutUser();
       window.location.href = "login.html";
       return;
