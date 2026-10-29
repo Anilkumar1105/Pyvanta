@@ -571,3 +571,109 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Exam-page contrast repair: ensure readable text across all exam question types. */
+#examUi .exam-topbar,
+#examUi .exam-topbar.bg-white {
+  background: #12151E !important;
+  color: #F3F4F8 !important;
+  border-bottom: 1px solid #343B4B !important;
+}
+#examUi .exam-topbar #topExamName {
+  color: #F8FAFC !important;
+  -webkit-text-fill-color: #F8FAFC !important;
+}
+#examUi .exam-topbar #topStudentInfo,
+#examUi .exam-topbar .text-muted {
+  color: #C4CDDC !important;
+  -webkit-text-fill-color: #C4CDDC !important;
+}
+#examUi #timerDisplay {
+  color: #FDE68A !important;
+  -webkit-text-fill-color: #FDE68A !important;
+  font-weight: 800 !important;
+}
+#examUi #timerDisplay.timer-warning { color: #FCA5A5 !important; -webkit-text-fill-color: #FCA5A5 !important; }
+#examUi .card,
+#examUi #questionCard {
+  color: #F3F4F8 !important;
+}
+#examUi #questionCard h1,
+#examUi #questionCard h2,
+#examUi #questionCard h3,
+#examUi #questionCard h4,
+#examUi #questionCard h5,
+#examUi #questionCard h6,
+#examUi #questionCard p,
+#examUi #questionCard label,
+#examUi #questionCard strong {
+  color: inherit;
+}
+#examUi #questionCard .text-muted,
+#examUi #questionCard .small.text-muted {
+  color: #B8C3D6 !important;
+}
+#examUi .mcq-option,
+#examUi .mcq-option span,
+#examUi .mcq-option label {
+  color: #F3F4F8 !important;
+  -webkit-text-fill-color: #F3F4F8 !important;
+}
+#examUi .mcq-option {
+  background: #171B27 !important;
+  border: 1px solid #697386 !important;
+}
+#examUi .mcq-option:hover {
+  background: #24213A !important;
+  border-color: #A78BFA !important;
+}
+#examUi .mcq-option.selected,
+#examUi .mcq-option.selected:hover {
+  background: #5B35C5 !important;
+  border-color: #C4B5FD !important;
+  box-shadow: 0 0 0 2px rgba(167,139,250,.22) !important;
+  color: #FFFFFF !important;
+}
+#examUi .mcq-option.selected *,
+#examUi .mcq-option.selected span,
+#examUi .mcq-option.selected label {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+#examUi .mcq-option input[type="radio"] {
+  accent-color: #C4B5FD !important;
+  flex: 0 0 auto;
+}
+#examUi .sample-case {
+  background: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #172033 !important;
+}
+#examUi .sample-case-title,
+#examUi .sample-io-label {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+}
+#examUi pre.sample-io-value,
+#examUi .sample-io-value,
+#examUi .sample-case pre,
+#examUi .sample-case code {
+  background: #0D111A !important;
+  color: #F1F5F9 !important;
+  -webkit-text-fill-color: #F1F5F9 !important;
+  border: 1px solid #374151 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+#examUi .question-nav-btn {
+  color: #D6DEEA !important;
+  border-color: #697386 !important;
+}
+#examUi .question-nav-btn.answered {
+  color: #FFFFFF !important;
+  background: #087F5B !important;
+  border-color: #34D399 !important;
+}
+#examUi .question-nav-btn.current {
+  outline-color: #A78BFA !important;
+}
