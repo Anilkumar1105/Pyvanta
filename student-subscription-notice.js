@@ -20,7 +20,11 @@ requireRole('student', async (user) => {
     const active = sub?.status === 'active' && (!sub.expiresAt?.toDate || sub.expiresAt.toDate() > new Date());
     if (active) {
       title = 'Subscription approved — access active';
-      message = `${sub.planName || sub.planId || 'Your plan'} is active${sub.expiresAt?.toDate ? ` until ${sub.expiresAt.toDate().toLocaleDateString()}` : ''}. You can now use your subscription features.`;
+      const expiry = sub.expiresAt?.toDate?.() || null;
+      const remainingDays = expiry ? Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / 86400000)) : null;
+      const plan = sub.planName || sub.planId || 'Your plan';
+      const duration = Number.isFinite(Number(sub.durationDays)) ? ` · ${sub.durationDays} days total` : '';
+      message = `${plan} is active${duration}${expiry ? ` until ${expiry.toLocaleDateString()} (${remainingDays} days remaining)` : ''}. You can now use your subscription features.`;
       kind = 'success'; icon = 'bi-check-circle-fill';
     } else if (latest?.status === 'pending') {
       title = 'Payment submitted — waiting for admin approval';
