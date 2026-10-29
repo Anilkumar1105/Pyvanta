@@ -132,6 +132,22 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
+// Turn plain-text lesson content into readable, safely escaped visual sections.
+function formatConceptContent(rawContent) {
+  return String(rawContent ?? "").split(/\r?\n/).map((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return '<div class="concept-spacer" aria-hidden="true"></div>';
+    const safe = escapeHtml(line);
+    const isBullet = /^(?:[•*]|- )\s*/.test(line);
+    if (isBullet) {
+      return `<div class="concept-bullet"><span class="concept-bullet-dot" aria-hidden="true">✦</span><span>${safe.replace(/^(?:[•*]|- )\s*/, "")}</span></div>`;
+    }
+    const isHeading = line.length <= 72 && (line === line.toUpperCase() || /:$/.test(line));
+    if (isHeading) return `<h6 class="concept-section-heading">${safe}</h6>`;
+    return `<p class="concept-paragraph">${safe}</p>`;
+  }).join("");
+}
+
 function completedQuestionKey(section, questionId) {
   return `completedCodingQuestions:${section}:${currentUser?.uid || "guest"}`;
 }
@@ -165,7 +181,7 @@ function renderConcept(content) {
       <h5 class="mb-0">${escapeHtml(concept.title)}</h5>
       ${status === "completed" ? '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Completed</span>' : ""}
     </div>
-    <div class="concept-content mb-4">${escapeHtml(concept.content).replace(/\n/g, "<br>")}</div>
+    <div class="concept-content mb-4">${formatConceptContent(concept.content)}</div>
     <div id="conceptActionArea"></div>
   `;
 
@@ -253,7 +269,8 @@ function renderMcqForm(content) {
   const wrap = document.getElementById("mcqQuestionsWrap");
   mcqQuestions.forEach((q, qi) => {
     const block = document.createElement("div");
-    block.innerHTML = `<div class="fw-semibold mb-2">${qi + 1}. ${escapeHtml(q.questionText)}</div>`;
+    block.className = "mcq-question-card";
+    block.innerHTML = `<div class="mcq-question-title"><span class="mcq-question-number">${qi + 1}</span><span>${escapeHtml(q.questionText)}</span></div>`;
     const optWrap = document.createElement("div");
     optWrap.className = "d-flex flex-column gap-2";
     q.options.forEach((opt, oi) => {
