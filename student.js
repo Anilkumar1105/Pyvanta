@@ -1,7 +1,7 @@
 // js/student.js
 // Data-layer functions for the student dashboard and the exam page.
 
-import { db } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 import { getDocCached, getDocsCached, invalidateCollection, invalidateCache, setCachedDoc, upsertCachedQueryDoc, mergeCachedDoc, watchRemoteCacheChanges } from "./firestore-cache.js";
 import {
   collection,
@@ -179,11 +179,35 @@ export async function startSubmission(examId, student, maxViolations) {
   }
   const id = submissionId(examId, studentId);
   const startTime = new Date().toISOString();
+  // Email is the human-readable unique student identifier in Pyvanta.
+  // Keep the Firebase Auth UID as the stable document/query key, and never
+  // write optional profile properties when they are missing.
+  const studentEmail = String(student?.email || auth.currentUser?.email || "").trim().toLowerCase();
+  if (!studentEmail) {
+    throw new Error("Cannot start exam: your account email is unavailable. Please sign out and sign in again.");
+  }
+  const submission = {
+    id,
+    examId,
+    studentId,
+    studentEmail,
+    ...(student?.name ? { studentName: student.name } : {}),
+    ...(student?.section ? { section: student.section } : {}),
+    answers: {},
+    score: null,
+    percentage: null,
+    violations: 0,
+    maxViolations,
+    status: "in-progress",
+    startedAt: startTime,
+    submittedAt: null
+  };
   const result = await setDoc(doc(db, "submissions", id), {
     examId,
-    studentId: studentId,
-    rollNumber: student.rollNumber,
-    section: student.section,
+    studentId,
+    studentEmail,
+    ...(student?.name ? { studentName: student.name } : {}),
+    ...(student?.section ? { section: student.section } : {}),
     answers: {},
     score: null,
     percentage: null,
@@ -193,15 +217,6 @@ export async function startSubmission(examId, student, maxViolations) {
     startedAt: startTime,
     submittedAt: null
   });
-  const submission = {
-    id,
-    examId,
-    studentId: studentId,
-    rollNumber: student.rollNumber,
-    section: student.section,
-    answers: {}, score: null, percentage: null, violations: 0, maxViolations,
-    status: "in-progress", startedAt: startTime, submittedAt: null
-  };
   setCachedDoc(`user:${studentId}:col:submissions:doc:${id}`, id, submission, true);
   upsertCachedQueryDoc(`user:${studentId}:col:submissions`, id, submission);
   return result;

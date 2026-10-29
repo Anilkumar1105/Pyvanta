@@ -232,8 +232,8 @@ async function handleStart() {
     submission = {
       examId,
       studentId: studentUid,
-      rollNumber: studentProfile.rollNumber,
-      section: studentProfile.section,
+      studentEmail: String(studentProfile.email || auth.currentUser?.email || "").trim().toLowerCase(),
+      ...(studentProfile.section ? { section: studentProfile.section } : {}),
       answers: {},
       score: null,
       percentage: null,
@@ -278,7 +278,7 @@ async function handleStart() {
 
   document.getElementById("topExamName").textContent = exam.title;
   document.getElementById("topStudentInfo").textContent =
-    `${studentProfile.name} \u00b7 Roll ${studentProfile.rollNumber} \u00b7 Section ${studentProfile.section}`;
+    `${studentProfile.name || auth.currentUser?.displayName || "Student"} · ${studentProfile.email || auth.currentUser?.email || ""}${studentProfile.section ? ` · Section ${studentProfile.section}` : ""}`;
   document.getElementById("violationCount").textContent = violationCount;
 
   renderQuestionNav();
