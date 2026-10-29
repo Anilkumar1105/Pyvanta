@@ -113,8 +113,10 @@ href="./favicon.svg">
     <a href="index.html" class="navbar-brand display-font fw-bold text-white mb-0">
       <span class="brand-dot">&lt;/&gt;</span> Pyvanta
     </a>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2 landing-nav-links">
+      <a href="#free-demo" class="btn btn-outline-mint btn-sm">Try Python</a>
       <a href="subscriptions.html" class="btn btn-outline-mint btn-sm">Plans</a>
+      <a href="support.html" class="btn btn-outline-mint btn-sm">Help & FAQ</a>
       <a href="login.html" class="btn btn-outline-mint btn-sm">Login</a>
     </div>
   </div>
@@ -162,6 +164,53 @@ href="./favicon.svg">
         <div class="floating-code-chip chip-bottom"><span class="chip-symbol">✦</span> DSA visualizations</div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ===================== FREE PYTHON DEMO ===================== -->
+<section id="free-demo" class="container py-5 landing-section" aria-labelledby="demo-title">
+  <div class="pv-panel p-4 p-lg-5 demo-panel">
+    <div class="row g-4 align-items-start">
+      <div class="col-lg-5">
+        <span class="pv-eyebrow">FREE INTERACTIVE PREVIEW</span>
+        <h2 id="demo-title" class="display-font fw-bold h2 mt-3">Try Python before you sign up.</h2>
+        <p class="hero-sub">Edit the sample program, run it in your browser, and see the output. No account or payment is needed for this demo.</p>
+        <div class="demo-example-list" aria-label="Demo examples">
+          <button type="button" class="btn btn-outline-mint btn-sm" data-demo-example="hello">Hello World</button>
+          <button type="button" class="btn btn-outline-mint btn-sm" data-demo-example="sum">Add two numbers</button>
+          <button type="button" class="btn btn-outline-mint btn-sm" data-demo-example="even">Even or odd</button>
+        </div>
+        <p class="small pv-muted mt-3 mb-0">Demo safety note: Python runs in your browser tab using Pyodide. It is a learning preview, not a secure environment for running untrusted code. Avoid entering private information.</p>
+      </div>
+      <div class="col-lg-7">
+        <label for="freePythonCode" class="form-label">Python code</label>
+        <textarea id="freePythonCode" class="form-control demo-code" rows="9" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="demo-help">name = "Pyvanta learner"
+print("Hello,", name)
+print("Let's learn Python!")</textarea>
+        <div id="demo-help" class="form-text pv-muted">Tip: change the text inside the quotes and run it again.</div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button id="runFreePython" type="button" class="btn btn-mint"><span aria-hidden="true">▶</span> Run code</button>
+          <button id="resetFreePython" type="button" class="btn btn-outline-mint">Reset example</button>
+          <span id="demoRuntimeStatus" class="small pv-muted align-self-center" role="status" aria-live="polite">Python engine loads when you run the demo.</span>
+        </div>
+        <label for="freePythonOutput" class="form-label mt-3">Output</label>
+        <pre id="freePythonOutput" class="demo-output" tabindex="0" aria-live="polite">Your program output will appear here.</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LESSON / QUIZ PREVIEWS ===================== -->
+<section class="container py-5 landing-section" aria-labelledby="preview-title">
+  <div class="section-heading"><span class="pv-eyebrow">A TASTE OF THE PLATFORM</span><h2 id="preview-title" class="display-font fw-bold h2 mt-3 mb-3">Preview a lesson, quiz, and coding challenge.</h2><p class="hero-sub">Explore sample learning material before choosing a plan.</p></div>
+  <div class="row g-3 mt-2">
+    <div class="col-md-4"><article class="roadmap-card h-100"><div class="roadmap-icon">01</div><h3>Lesson preview: Variables</h3><p>A variable is a name that refers to a value. Python uses assignment to bind a name to an object.</p><pre class="demo-output">score = 10
+score = score + 5
+print(score)  # 15</pre><p class="small pv-muted mb-0">Preview includes a concept, example, and expected output.</p></article></div>
+    <div class="col-md-4"><article class="roadmap-card h-100"><div class="roadmap-icon">?</div><h3>Quiz preview: Data types</h3><p class="mb-2">What is the type of <code>3.14</code> in Python?</p><div class="d-grid gap-2" role="group" aria-label="Sample quiz answers"><button type="button" class="btn btn-outline-mint text-start preview-quiz-option" data-correct="false">A. <code>int</code></button><button type="button" class="btn btn-outline-mint text-start preview-quiz-option" data-correct="true">B. <code>float</code></button><button type="button" class="btn btn-outline-mint text-start preview-quiz-option" data-correct="false">C. <code>str</code></button></div><p id="previewQuizFeedback" class="small mt-2 mb-0" role="status" aria-live="polite">Choose an answer to see feedback.</p></article></div>
+    <div class="col-md-4"><article class="roadmap-card h-100"><div class="roadmap-icon">{ }</div><h3>Coding challenge preview</h3><p><strong>Task:</strong> Print the square of the number <code>6</code>.</p><pre class="demo-output">number = 6
+print(number * number)
+# Expected output: 36</pre><a href="#free-demo" class="btn btn-outline-mint btn-sm mt-2">Try code in the editor</a></article></div>
   </div>
 </section>
 
@@ -277,12 +326,31 @@ href="./favicon.svg">
   </div>
 </section>
 
+<!-- ===================== PRIVACY & SUPPORT ===================== -->
+<section class="container py-5 landing-section" aria-labelledby="privacy-title">
+  <div class="pv-panel p-4 p-lg-5">
+    <div class="row g-4 align-items-center">
+      <div class="col-lg-8"><span class="pv-eyebrow">TRANSPARENCY MATTERS</span><h2 id="privacy-title" class="display-font fw-bold h2 mt-3">Know what happens during learning and exams.</h2><p class="hero-sub mb-0">Pyvanta uses account, learning, and assessment data to provide platform features. Exam pages may track browser-tab visibility changes and can require fullscreen, depending on the exam configuration. This is browser-based monitoring—not a guarantee against cheating and not proof that a camera or microphone is being recorded.</p></div>
+      <div class="col-lg-4 d-grid gap-2"><a href="privacy.html" class="btn btn-outline-mint">Read privacy & proctoring details</a><a href="support.html" class="btn btn-mint">Visit Help & Support</a></div>
+    </div>
+  </div>
+</section>
+<section class="container py-5 landing-section" aria-labelledby="quick-faq-title">
+  <div class="section-heading"><span class="pv-eyebrow">QUICK ANSWERS</span><h2 id="quick-faq-title" class="display-font fw-bold h2 mt-3">Frequently asked questions</h2></div>
+  <div class="accordion mt-4" id="homeFaq">
+    <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqFree" aria-expanded="false" aria-controls="faqFree">Can I try Pyvanta for free?</button></h3><div id="faqFree" class="accordion-collapse collapse" data-bs-parent="#homeFaq"><div class="accordion-body">Yes. Use the Python demo and sample lesson, quiz, and coding challenge previews on this page. Full platform access depends on your account and plan.</div></div></div>
+    <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqPlans" aria-expanded="false" aria-controls="faqPlans">What is the difference between plans?</button></h3><div id="faqPlans" class="accordion-collapse collapse" data-bs-parent="#homeFaq"><div class="accordion-body">Starter provides regular learning and mock tests; Pro adds direct access to the Special Coding Section; Premium adds all special sections and the Code Visualizations Lab. <a href="subscriptions.html">Compare plans</a>.</div></div></div>
+    <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqProctor" aria-expanded="false" aria-controls="faqProctor">What does browser-based proctoring do?</button></h3><div id="faqProctor" class="accordion-collapse collapse" data-bs-parent="#homeFaq"><div class="accordion-body">Configured exams can use fullscreen and record page visibility/tab-switch events. Browser features have limits and do not by themselves guarantee exam integrity. Read the <a href="privacy.html">privacy and proctoring explanation</a> for details.</div></div></div>
+    <div class="accordion-item"><h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqHelp" aria-expanded="false" aria-controls="faqHelp">Where can I get help with my account or an exam?</button></h3><div id="faqHelp" class="accordion-collapse collapse" data-bs-parent="#homeFaq"><div class="accordion-body">Visit <a href="support.html">Help & Support</a>. If support requires an account, sign in and use the available student support form.</div></div></div>
+  </div>
+</section>
+
 <section class="container py-5"><div class="pv-panel p-4 p-lg-5"><div class="row align-items-center g-4"><div class="col-lg-7"><span class="pv-eyebrow">PYVANTA PREMIUM</span><h2 class="display-font fw-bold mt-3">Your next skill is one challenge away.</h2><p class="hero-sub mb-0">Choose Starter for 60 days, Pro for 180 days, or Premium for 360 days. Premium adds all special sections and the Code Visualizations Lab; SQLite sessions are planned soon.</p></div><div class="col-lg-5"><div class="row g-2"><div class="col-4"><div class="pv-plan p-3"><div class="small pv-muted">Starter · 60 days</div><div class="h3 mb-0">₹149</div></div></div><div class="col-4"><div class="pv-plan featured p-3"><div class="small pv-muted">Pro · 180 days</div><div class="h3 mb-0">₹299</div></div></div><div class="col-4"><div class="pv-plan p-3"><div class="small pv-muted">Premium · 360 days</div><div class="h3 mb-0">₹499</div></div></div><div class="col-12"><a href="subscriptions.html" class="btn btn-mint w-100 mt-2">Explore subscriptions</a></div></div></div></div></div></section>
 
 <footer class="py-4 mt-4">
-  <div class="container d-flex flex-wrap justify-content-between">
+  <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3">
     <span>&copy; <span id="year"></span> Pyvanta Learning Portal</span>
-    <span>Browser-based proctoring only &mdash; not a replacement for in-person invigilation.</span>
+    <nav aria-label="Footer links" class="d-flex flex-wrap gap-3"><a href="privacy.html">Privacy & Proctoring</a><a href="subscriptions.html">Plans</a><a href="support.html">FAQ & Support</a></nav>
   </div>
 </footer>
 
@@ -336,6 +404,63 @@ href="./favicon.svg">
     }, { threshold: 0.12, rootMargin: '0px 0px -30px 0px' });
     items.forEach(item => observer.observe(item));
   })();
+</script>
+
+<script>
+(() => {
+  const editor = document.getElementById('freePythonCode');
+  const output = document.getElementById('freePythonOutput');
+  const status = document.getElementById('demoRuntimeStatus');
+  const runButton = document.getElementById('runFreePython');
+  const resetButton = document.getElementById('resetFreePython');
+  if (!editor || !output || !runButton) return;
+  const examples = {
+    hello: 'name = "Pyvanta learner"\nprint("Hello,", name)\nprint("Let\'s learn Python!")',
+    sum: 'a = 12\nb = 8\nprint("Sum:", a + b)',
+    even: 'number = 7\nif number % 2 == 0:\n    print(number, "is even")\nelse:\n    print(number, "is odd")'
+  };
+  let pyodidePromise;
+  async function loadPython() {
+    if (window.loadPyodide) return window.loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/' });
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('The Python engine could not load. Check your connection and try again.'));
+      document.head.appendChild(script);
+    });
+    return window.loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/' });
+  }
+  document.querySelectorAll('[data-demo-example]').forEach(button => button.addEventListener('click', () => {
+    editor.value = examples[button.dataset.demoExample] || examples.hello;
+    output.textContent = 'Ready to run this example.';
+    status.textContent = 'Example loaded. Select Run code to execute it.';
+  }));
+  resetButton?.addEventListener('click', () => { editor.value = examples.hello; output.textContent = 'Your program output will appear here.'; status.textContent = 'Example reset.'; });
+  runButton.addEventListener('click', async () => {
+    runButton.disabled = true; status.textContent = 'Loading Python…'; output.textContent = '';
+    try {
+      pyodidePromise ||= loadPython();
+      const pyodide = await pyodidePromise;
+      let captured = '';
+      pyodide.setStdout({ batched: text => { captured += text + '\n'; } });
+      pyodide.setStderr({ batched: text => { captured += text + '\n'; } });
+      status.textContent = 'Running code in your browser…';
+      await pyodide.runPythonAsync(editor.value);
+      output.textContent = captured.trimEnd() || '(Program finished without printed output.)';
+      status.textContent = 'Finished successfully.';
+    } catch (error) {
+      output.textContent = String(error?.message || error).replace(/^PythonError: /, '');
+      status.textContent = 'The program could not run. Check the code and try again.';
+      if (String(error).includes('could not load')) pyodidePromise = null;
+    } finally { runButton.disabled = false; }
+  });
+  document.querySelectorAll('.preview-quiz-option').forEach(button => button.addEventListener('click', () => {
+    const feedback = document.getElementById('previewQuizFeedback');
+    document.querySelectorAll('.preview-quiz-option').forEach(option => { option.setAttribute('aria-pressed', String(option === button)); });
+    feedback.textContent = button.dataset.correct === 'true' ? 'Correct! Decimal numbers such as 3.14 have type float.' : 'Not quite. 3.14 is a decimal number, so its type is float. Try again.';
+  }));
+})();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

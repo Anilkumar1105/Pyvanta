@@ -677,3 +677,25 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
 #examUi .question-nav-btn.current {
   outline-color: #A78BFA !important;
 }
+
+/* Landing demo, clear plan comparisons, and accessibility improvements. */
+.landing-nav-links a { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; }
+.demo-panel { border-color: rgba(139,92,246,.32); background: radial-gradient(ellipse at top right,rgba(139,92,246,.11),transparent 45%),var(--pv-panel); }
+.demo-code { min-height: 220px; resize: vertical; background: #080a0f !important; color: #e5e7eb !important; border-color: rgba(139,92,246,.4) !important; font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: .94rem; line-height: 1.65; }
+.demo-code:focus { border-color: var(--pv-cyan) !important; box-shadow: 0 0 0 .22rem rgba(34,211,238,.18) !important; }
+.demo-output { min-height: 70px; max-height: 260px; overflow: auto; padding: 1rem; border: 1px solid var(--pv-border); border-radius: 12px; background: #080a0f; color: #b9f6ca; white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.demo-example-list { display:flex;flex-wrap:wrap;gap:.5rem; }
+.preview-quiz-option[aria-pressed="true"] { border-color: var(--pv-cyan); box-shadow: 0 0 0 .15rem rgba(34,211,238,.15); }
+.landing .accordion-item { color:var(--pv-text);background:var(--pv-panel);border-color:var(--pv-border); }
+.landing .accordion-button { color:var(--pv-text);background:var(--pv-panel);font-weight:650; }
+.landing .accordion-button:not(.collapsed) { color:#e9ddff;background:rgba(139,92,246,.13);box-shadow:none; }
+.landing .accordion-button:focus { border-color:var(--pv-purple);box-shadow:0 0 0 .22rem rgba(139,92,246,.28); }
+.landing .accordion-body { color:var(--pv-muted);line-height:1.7; }
+.landing footer a { color:var(--pv-cyan);text-decoration:underline;text-underline-offset:3px; }
+.plan-compare th,.plan-compare td { min-width:125px; border-color:var(--pv-border)!important; color:var(--pv-text)!important; background:var(--pv-panel)!important; }
+.plan-compare thead th { background:var(--pv-panel-2)!important; }
+.plan-compare tbody th { font-weight:650; }
+:where(a,button,input,textarea,select,[tabindex]):focus-visible { outline:3px solid var(--pv-cyan)!important; outline-offset:3px; }
+button:disabled { cursor:wait; opacity:.7; }
+@media(max-width:575.98px) { .landing-nav-links { gap:.35rem!important; }.landing-nav-links .btn { padding:.35rem .5rem;font-size:.78rem; }.demo-code { min-height:190px;font-size:.85rem; }.demo-panel { padding:1.15rem!important; } }
+@media(prefers-reduced-motion:reduce) { .landing .reveal-on-scroll,.landing .code-window-float,.landing .floating-achievement,.landing .floating-code-chip { animation:none!important;transition:none!important;transform:none!important; } }
