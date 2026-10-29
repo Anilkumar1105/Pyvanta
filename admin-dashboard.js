@@ -881,9 +881,9 @@ function openEditStudent(uid) {
   editingStudentUid = uid;
   resetStudentForm();
   document.getElementById("studentModalTitle").textContent = "Edit Student";
-  document.getElementById("studentNameInput").value = student.name;
-  document.getElementById("studentRollInput").value = student.rollNumber;
-  document.getElementById("studentSectionInput").value = student.section;
+  document.getElementById("studentNameInput").value = student.name || "";
+  document.getElementById("studentRollInput").value = student.rollNumber || "";
+  document.getElementById("studentSectionInput").value = student.section || "";
   document.getElementById("studentEmailInput").value = student.email;
   document.getElementById("studentEmailInput").disabled = true;
   document.getElementById("studentPasswordInput").value = student.passwordPlain || "";

@@ -90,11 +90,29 @@ export async function addStudent({ name, rollNumber, section, email, password })
  * match what actually logs them in. Treat this field as "the password
  * we last set for them," not as a live mirror of their real credential.
  */
-export function updateStudent(uid, { name, rollNumber, section, password }) {
-  const data = { name, rollNumber, section };
+export async function updateStudent(uid, { name, rollNumber, section, password }) {
+  if (!uid) throw new Error("Student UID is missing. Reload the Students list and try again.");
+  const studentRef = doc(db, "users", uid);
+  const existingSnap = await getDoc(studentRef);
+  const data = {
+    uid,
+    name: String(name || "").trim(),
+    rollNumber: String(rollNumber || "").trim(),
+    section: String(section || "").trim(),
+    role: "student",
+    updatedAt: new Date().toISOString()
+  };
+  if (!existingSnap.exists()) {
+    const authEmail = "";
+    data.email = authEmail;
+    data.createdAt = new Date().toISOString();
+  }
   const trimmed = password ? String(password).trim() : "";
   if (trimmed) data.passwordPlain = trimmed;
-  return updateDoc(doc(db, "users", uid), data).then(async (r) => { invalidateCollection("users"); invalidateCache(`user:${uid}:col:users:doc:${uid}`); await bumpRemoteCacheVersion(db, "users"); return r; });
+  await setDoc(studentRef, data, { merge: true });
+  invalidateCollection("users");
+  invalidateCache(`user:${uid}:col:users:doc:${uid}`);
+  await bumpRemoteCacheVersion(db, "users");
 }
 
 /**
@@ -121,14 +139,16 @@ export function deleteStudentProfile(uid) {
 
 /** Fetch all students, optionally filtered by section. */
 export async function listStudents(section = "all") {
+  // Read the profile collection once and use each Firestore document ID as
+  // the canonical UID. Older profiles may lack a `uid` field or `role`,
+  // which previously made edit buttons target `users/undefined` or hide rows.
   const usersRef = collection(db, "users");
-  const q =
-    section === "all"
-      ? query(usersRef, where("role", "==", "student"))
-      : query(usersRef, where("role", "==", "student"), where("section", "==", section));
-
-  const snap = await getDocsCached(q, `col:users:admin:section:${section}`);
-  return snap.docs.map((d) => d.data());
+  const snap = await getDocsCached(usersRef, "col:users:admin:all-profiles");
+  return snap.docs
+    .map((d) => ({ ...d.data(), uid: d.id }))
+    .filter((profile) => String(profile.role || "student").toLowerCase() !== "admin")
+    .filter((profile) => section === "all" || String(profile.section || "") === section)
+    .map((profile) => ({ ...profile, role: "student", email: profile.email || "", name: profile.name || (profile.email ? profile.email.split("@")[0] : "Student") }));
 }
 
 /* ============================================================
