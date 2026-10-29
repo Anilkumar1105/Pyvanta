@@ -305,15 +305,17 @@ function renderMcqForm(content) {
 function renderMcqResult(content, { passed, score, total, percentage, answers = {} }) {
   content.innerHTML = `
     <div class="text-center py-3">
-      <div class="result-badge-icon ${passed ? "pass" : "fail"} mx-auto mb-3">
-        <i class="bi ${passed ? "bi-trophy-fill" : "bi-x-lg"}"></i>
+      <div class="result-badge-icon ${passed ? "pass result-pop" : "fail result-sad"} mx-auto mb-3" aria-hidden="true">
+        <i class="bi ${passed ? "bi-trophy-fill" : "bi-emoji-frown-fill"}"></i>
       </div>
+      <div class="result-sticker ${passed ? "result-sticker-pass" : "result-sticker-fail"}">${passed ? "🎉 🌟 🏆 🎊" : "💙 🌱 💪"}</div>
+      <h3 class="result-headline ${passed ? "is-pass" : "is-fail"}">${passed ? "Amazing work! You passed!" : "Keep going — you can do this!"}</h3>
       <span class="badge ${passed ? "bg-success" : "bg-danger"} fs-6 px-3 py-2 mb-2">
         <i class="bi ${passed ? "bi-check-circle-fill" : "bi-x-circle-fill"} me-1"></i>${passed ? "PASSED" : "NOT YET PASSED"}
       </span>
-      <div class="display-6 fw-bold mt-2">${score} <span class="fs-5 text-muted fw-normal">/ ${total}</span></div>
-      <div class="text-muted mb-3">${percentage}% \u00b7 Pass mark: ${level.passMark ?? 40}%</div>
-      ${passed ? `<div class="alert alert-success mb-3"><i class="bi bi-unlock-fill me-1"></i>Coding Practice is now unlocked.</div>` : ""}
+      <div class="result-score ${passed ? "is-pass" : "is-fail"} mt-2">${score} <span>/ ${total}</span></div>
+      <div class="result-percent ${passed ? "is-pass" : "is-fail"}">${percentage}% <span>· Pass mark: ${level.passMark ?? 40}%</span></div>
+      ${passed ? `<div class="alert alert-success mb-3"><i class="bi bi-unlock-fill me-1"></i>Coding Practice is now unlocked. Great job!</div>` : `<p class="result-encouragement">Every attempt helps you improve. Review the answers, practice the concepts, and try again.</p>`}
       <div class="d-flex justify-content-center gap-2 mb-3">
         <button class="btn btn-outline-secondary btn-sm" id="reviewMcqBtn"><i class="bi bi-clipboard-check me-1"></i>Review Answers</button>
         <button class="btn btn-brand btn-sm" id="retakeMcqBtn"><i class="bi bi-arrow-repeat me-1"></i>Retake Test</button>
@@ -321,6 +323,7 @@ function renderMcqResult(content, { passed, score, total, percentage, answers = 
       <div id="mcqReviewWrap" class="text-start"></div>
     </div>
   `;
+  if (passed) launchResultConfetti(content);
   document.getElementById("retakeMcqBtn").addEventListener("click", () => renderMcqForm(content));
   document.getElementById("reviewMcqBtn").addEventListener("click", (e) => {
     const wrap = document.getElementById("mcqReviewWrap");
@@ -335,6 +338,23 @@ function renderMcqResult(content, { passed, score, total, percentage, answers = 
       e.currentTarget.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Review';
     }
   });
+}
+
+function launchResultConfetti(container) {
+  const layer = document.createElement("div");
+  layer.className = "result-confetti-layer";
+  layer.setAttribute("aria-hidden", "true");
+  const pieces = ["🎉", "✨", "⭐", "🎊", "🏆"];
+  for (let i = 0; i < 22; i += 1) {
+    const piece = document.createElement("span");
+    piece.textContent = pieces[i % pieces.length];
+    piece.style.left = `${(i * 37) % 100}%`;
+    piece.style.animationDelay = `${(i % 7) * 0.12}s`;
+    piece.style.setProperty("--drift", `${((i % 5) - 2) * 24}px`);
+    layer.appendChild(piece);
+  }
+  container.querySelector(".text-center")?.prepend(layer);
+  window.setTimeout(() => layer.remove(), 2600);
 }
 
 function buildMcqReviewHtml(answers) {

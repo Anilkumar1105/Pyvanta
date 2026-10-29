@@ -989,6 +989,26 @@ async function gradeSubmission() {
   return { score: mcqScore + codingScore, mcqScore, codingScore, totalMarks };
 }
 
+function launchExamConfetti() {
+  const modalBody = document.querySelector("#resultModal .modal-body");
+  if (!modalBody) return;
+  modalBody.querySelector(".exam-confetti-layer")?.remove();
+  const layer = document.createElement("div");
+  layer.className = "exam-confetti-layer";
+  layer.setAttribute("aria-hidden", "true");
+  ["🎉", "✨", "⭐", "🎊", "🏆"].forEach((symbol, index) => {
+    for (let i = 0; i < 4; i += 1) {
+      const piece = document.createElement("span");
+      piece.textContent = symbol;
+      piece.style.left = `${(index * 19 + i * 7) % 100}%`;
+      piece.style.animationDelay = `${(i + index) * 0.09}s`;
+      layer.appendChild(piece);
+    }
+  });
+  modalBody.prepend(layer);
+  window.setTimeout(() => layer.remove(), 2700);
+}
+
 function showResult(status, message, { score, mcqScore, codingScore, totalMarks }) {
   const resultMessage = document.getElementById("resultMessage");
   resultMessage.textContent =
@@ -1005,11 +1025,20 @@ function showResult(status, message, { score, mcqScore, codingScore, totalMarks 
 
     const percentage = totalMarks ? Math.round((score / totalMarks) * 10000) / 100 : 0;
     const passed = isPass(percentage);
+    const scoreEl = document.getElementById("resultScore");
+    scoreEl.classList.toggle("is-pass", passed);
+    scoreEl.classList.toggle("is-fail", !passed);
+    document.getElementById("resultPercentage").textContent = `${percentage}% · Pass mark: ${PASS_MARK}%`;
+    document.getElementById("examResultHeadline").textContent = passed ? "🎉 Excellent work! You passed!" : "💙 Don't give up — learn and try again.";
+    document.getElementById("examResultHeadline").className = `exam-result-headline ${passed ? "is-pass" : "is-fail"}`;
+    document.getElementById("examResultSticker").textContent = passed ? "🏆 🎉 ⭐ 🎊" : "😔 🌱 💪";
+    document.getElementById("examResultSticker").className = `exam-result-sticker ${passed ? "is-pass" : "is-fail"}`;
     document.getElementById("resultPassFail").innerHTML =
-      `<span class="badge ${passed ? "bg-success" : "bg-danger"} fs-6">${passed ? "PASS" : "FAIL"}</span>` +
-      `<div class="small text-muted mt-1">Pass mark: ${PASS_MARK}%</div>`;
+      `<span class="badge ${passed ? "bg-success" : "bg-danger"} fs-6 px-3 py-2">${passed ? "✓ PASSED" : "✦ KEEP PRACTICING"}</span>` +
+      `<div class="small mt-2 ${passed ? "text-success" : "text-danger"}">${passed ? "Your effort paid off. Keep up the great work!" : "Review the questions, practice weak areas, and take another step forward."}</div>`;
 
     document.getElementById("resultScoreBlock").classList.remove("d-none");
+    if (passed) launchExamConfetti();
   }
 
   new bootstrap.Modal(document.getElementById("resultModal")).show();
