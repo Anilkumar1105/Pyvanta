@@ -6,7 +6,7 @@ import { collection, doc, setDoc, addDoc, getDocs, serverTimestamp } from "https
 wireLogoutButtons();
 const $ = id => document.getElementById(id);
 let pending = [];
-const legacySheets = ["SQL_CONTENT","SQL_MCQ","SQL_QUERIES","SQL_SPECIAL","SQL_VISUALIZATIONS"];
+const legacySheets = ["SQL_CONTENT","SQL_MCQ","SQL_QUERIES","SQL_SPECIAL","SQL_VISUALIZATIONS","SQL_QUESTIONS","SQL_TEST_CASES"];
 const sharedSheets = ["MODULES","TOPICS","TOPIC_CONTENT","TOPIC_MCQ","PRACTICE_QUESTIONS"];
 const headers = {
   MODULES:["subject","moduleId","title","description","order","phase","passMark","active"],
@@ -18,7 +18,9 @@ const headers = {
   SQL_MCQ:["id","questionText","OptionA","OptionB","OptionC","OptionD","correctOptionIndex","explanation","topic","difficulty","published"],
   SQL_QUERIES:["id","title","prompt","starter","solution","topic","difficulty","tables","order","published"],
   SQL_SPECIAL:["id","title","prompt","starter","solution","topic","difficulty","tables","order","published"],
-  SQL_VISUALIZATIONS:["id","title","query","stepsJson","explanation","topic","published"]
+  SQL_VISUALIZATIONS:["id","title","query","stepsJson","explanation","topic","published"],
+  SQL_QUESTIONS:["QuestionID","Type","Title","Description","InputDescription","OutputDescription","SchemaSQL","StarterQuery","Difficulty","Marks","TimeLimit","Order","Published"],
+  SQL_TEST_CASES:["QuestionID","Visibility","TestCaseName","ExpectedOutputJSON","SetupSQL"]
 };
 const norm = v => String(v ?? "").toLowerCase().replace(/[^a-z0-9]/g,"");
 const clean = row => Object.fromEntries(Object.entries(row).map(([k,v])=>[norm(k),v]));
@@ -110,8 +112,17 @@ function parseWorkbook(wb){
     if(!wb.Sheets[sheet]) continue;
     XLSX.utils.sheet_to_json(wb.Sheets[sheet],{defval:""}).forEach((raw,i)=>{
       const r=clean(raw), title=String(val(r,"title")), solution=String(val(r,"solution"));
-      if(!title||!String(val(r,"prompt"))||!solution) throw new Error(`${sheet} row ${i+2}: title, prompt and solution are required.`);
-      pushSet("sqlChallenges",`sql-${slug(val(r,"id")||`${sheet}-${title}`)}`,{title,prompt:String(val(r,"prompt")),starter:String(val(r,"starter")||"SELECT * FROM students;"),solution,topic:String(val(r,"topic")||""),difficulty:String(val(r,"difficulty")||"Easy"),tables:String(val(r,"tables")||"").split(",").map(x=>x.trim()).filter(Boolean),special:sheet==="SQL_SPECIAL",published:truth(val(r,"published")),order:Number(val(r,"order")||i+1),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      if(!title||!String(val(r,"prompt"))) throw new Error(`${sheet} row ${i+2}: title and prompt are required.`);
+      pushSet("sqlChallenges",`sql-${slug(val(r,"id")||`${sheet}-${title}`)}`,{title,prompt:String(val(r,"prompt")),starter:String(val(r,"starter")||""),solution,topic:String(val(r,"topic")||""),difficulty:String(val(r,"difficulty")||"Easy"),tables:String(val(r,"tables")||"").split(",").map(x=>x.trim()).filter(Boolean),special:sheet==="SQL_SPECIAL",questionOnly:!solution,published:truth(val(r,"published")),order:Number(val(r,"order")||i+1),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    });
+  }
+  // Question-only SQL query bank: the admin supplies the task and starter database, never a solution.
+  if(wb.Sheets.SQL_QUESTIONS){
+    XLSX.utils.sheet_to_json(wb.Sheets.SQL_QUESTIONS,{defval:""}).forEach((raw,i)=>{
+      const r=clean(raw), id=String(val(r,"QuestionID","id")||`sql-question-${i+1}`), title=String(val(r,"Title","title"));
+      const prompt=String(val(r,"Description","prompt","question")), schemaSql=String(val(r,"SchemaSQL","schemaSql"));
+      if(!title||!prompt||!schemaSql) throw new Error(`SQL_QUESTIONS row ${i+2}: QuestionID, Title, Description and SchemaSQL are required.`);
+      pushSet("sqlChallenges",`sql-${slug(id)}`,{title,prompt,description:String(val(r,"InputDescription")||""),outputDescription:String(val(r,"OutputDescription")||""),schemaSql,starter:"",topic:"SQL Practice",difficulty:String(val(r,"Difficulty")||"Easy"),marks:Number(val(r,"Marks")||0),timeLimit:Number(val(r,"TimeLimit")||0),special:false,questionOnly:true,published:truth(val(r,"Published")),order:Number(val(r,"Order")||i+1),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     });
   }
   // SQL visualization rows are stored in the shared visualization collection and tagged SQL.
