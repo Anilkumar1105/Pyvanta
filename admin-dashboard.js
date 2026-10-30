@@ -1744,7 +1744,7 @@ async function renderLevelsTable() {
   const tbody = document.getElementById("levelsTableBody");
 
   if (!levels.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No learning levels created yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No learning levels created yet.</td></tr>`;
     return;
   }
 
@@ -1778,6 +1778,7 @@ async function renderLevelsTable() {
     .map(
       (lvl) => `
       <tr>
+        <td><span class="badge ${String(lvl.subject || "Python").toLowerCase() === "sql" ? "bg-info text-dark" : "bg-primary"}">${escapeHtmlL(lvl.subject || "Python")}</span></td>
         <td>${escapeHtmlL(lvl.title)}</td>
         <td>${countsById[lvl.id]?.concepts ?? 0}</td>
         <td>${countsById[lvl.id]?.mcqs ?? 0}</td>
@@ -1805,6 +1806,8 @@ document.getElementById("createLevelBtn").addEventListener("click", () => {
   document.getElementById("levelSubmitBtn").textContent = "Create Level";
   document.getElementById("levelFormError").classList.add("d-none");
   document.getElementById("levelOrderInput").value = 0;
+  document.getElementById("levelSubjectInput").value = "Python";
+  document.getElementById("levelPhaseInput").value = "";
   document.getElementById("levelPassMarkInput").value = 40;
   document.getElementById("levelActiveInput").checked = true;
   new bootstrap.Modal(document.getElementById("levelModal")).show();
@@ -1817,6 +1820,8 @@ function openEditLevel(levelId) {
   document.getElementById("levelModalTitle").textContent = "Edit Level";
   document.getElementById("levelSubmitBtn").textContent = "Save Changes";
   document.getElementById("levelFormError").classList.add("d-none");
+  document.getElementById("levelSubjectInput").value = lvl.subject || "Python";
+  document.getElementById("levelPhaseInput").value = lvl.phase || "";
   document.getElementById("levelTitleInput").value = lvl.title;
   document.getElementById("levelDescInput").value = lvl.description || "";
   document.getElementById("levelOrderInput").value = lvl.order ?? 0;
@@ -1837,6 +1842,8 @@ document.getElementById("levelForm").addEventListener("submit", async (e) => {
   errorEl.classList.add("d-none");
 
   const data = {
+    subject: document.getElementById("levelSubjectInput").value === "SQL" ? "SQL" : "Python",
+    phase: document.getElementById("levelPhaseInput").value.trim(),
     title: document.getElementById("levelTitleInput").value.trim(),
     description: document.getElementById("levelDescInput").value.trim(),
     order: Number(document.getElementById("levelOrderInput").value),

@@ -256,7 +256,7 @@ href="./favicon.svg">
                   </tr>
                 </thead>
                 <tbody id="examsTableBody">
-                  <tr><td colspan="7" class="text-center text-muted py-4">No exams created yet.</td></tr>
+                  <tr><td colspan="8" class="text-center text-muted py-4">No exams created yet.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -351,7 +351,7 @@ href="./favicon.svg">
             <div class="table-responsive">
               <table class="table table-striped mb-0 align-middle">
                 <thead>
-                  <tr><th>Title</th><th>Concepts</th><th>MCQs</th><th>Coding Qs</th><th>Pass Mark</th><th>Status</th><th class="text-end">Actions</th></tr>
+                  <tr><th>Subject</th><th>Title</th><th>Concepts</th><th>MCQs</th><th>Coding Qs</th><th>Pass Mark</th><th>Status</th><th class="text-end">Actions</th></tr>
                 </thead>
                 <tbody id="levelsTableBody">
                   <tr><td colspan="7" class="text-center text-muted py-4">No learning levels created yet.</td></tr>
@@ -835,6 +835,10 @@ href="./favicon.svg">
         </div>
         <div class="modal-body">
           <div id="conceptFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6"><label class="form-label" for="levelSubjectInput">Subject</label><select class="form-select" id="levelSubjectInput" required><option value="Python">Python</option><option value="SQL">SQL</option></select></div>
+            <div class="col-md-6"><label class="form-label" for="levelPhaseInput">Learning phase (optional)</label><input type="text" class="form-control" id="levelPhaseInput" placeholder="e.g. Python Fundamentals" /></div>
+          </div>
           <div class="mb-3">
             <label class="form-label">Title</label>
             <input type="text" class="form-control" id="conceptTitleInput" placeholder="e.g. Variables" required />

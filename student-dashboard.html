@@ -161,10 +161,23 @@ href="./favicon.svg">
     </div>
   </div>
 
-  <h5 class="mb-3"><i class="bi bi-mortarboard-fill me-1"></i>Learning Section</h5>
-  <div id="learningLevelsList" class="row g-3 mb-4">
-    <div class="col-12 text-muted">Fetching learning levels...</div>
-  </div>
+  <section class="pv-learning-hub mb-4" aria-labelledby="learningHubTitle">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+      <div><div class="pv-eyebrow">YOUR LEARNING SPACE</div><h5 class="mb-1" id="learningHubTitle"><i class="bi bi-mortarboard-fill me-1"></i>Learning Hub</h5><p class="text-muted small mb-0">Choose Python or SQL and continue at your own pace.</p></div>
+      <div class="pv-learning-subject-switch" role="group" aria-label="Choose subject">
+        <button type="button" class="active" data-learning-subject="Python"><i class="bi bi-code-slash me-1"></i>Python</button>
+        <button type="button" data-learning-subject="SQL"><i class="bi bi-database me-1"></i>SQL</button>
+      </div>
+    </div>
+    <div id="learningContinueCard" class="mb-3"></div>
+    <div class="pv-learning-tools mb-3">
+      <div class="pv-learning-search"><i class="bi bi-search"></i><input id="learningModuleSearch" type="search" class="form-control" placeholder="Search modules..." aria-label="Search learning modules"></div>
+      <select id="learningStatusFilter" class="form-select" aria-label="Filter modules by status"><option value="all">All modules</option><option value="in-progress">In progress</option><option value="not-started">Not started</option><option value="completed">Completed</option></select>
+    </div>
+    <div id="learningLevelsList" class="pv-learning-phases">
+      <div class="text-muted small py-3">Fetching learning modules...</div>
+    </div>
+  </section>
 
   <div class="card border-primary mb-4" id="studentCodeVisualizationsCard">
     <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
@@ -906,65 +919,111 @@ href="./favicon.svg">
       })
       .join("");
   }
-  /* ---------- Learning Section ---------- */
+  /* ---------- Dynamic Learning Hub (Python + SQL) ---------- */
+  let learningHubSubject = "Python";
+  let learningHubLevels = [];
+  let learningHubProgress = {};
+
   async function renderLearningLevels(progressRows = []) {
     const container = document.getElementById("learningLevelsList");
-    const levels = await listActiveLevels();
-    const progressByLevelId = Object.fromEntries(
-      progressRows.map((p) => [p.levelId, p])
-    );
+    const continueCard = document.getElementById("learningContinueCard");
+    learningHubLevels = (await listActiveLevels()).filter((level) => {
+      const subject = String(level.subject || "Python").trim().toLowerCase();
+      return subject === "python" || subject === "sql";
+    });
+    learningHubProgress = Object.fromEntries(progressRows.map((p) => [p.levelId, p]));
 
-    if (!levels.length) {
-      container.innerHTML = `<div class="col-12 text-center text-muted py-4">No learning levels are available yet.</div>`;
+    const subjectButtons = document.querySelectorAll("[data-learning-subject]");
+    subjectButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.learningSubject === learningHubSubject);
+      button.setAttribute("aria-pressed", String(button.dataset.learningSubject === learningHubSubject));
+    });
+
+    const searchInput = document.getElementById("learningModuleSearch");
+    const statusFilter = document.getElementById("learningStatusFilter");
+    if (!container.dataset.wired) {
+      subjectButtons.forEach((button) => button.addEventListener("click", () => {
+        learningHubSubject = button.dataset.learningSubject;
+        renderLearningLevels(progressRows);
+      }));
+      searchInput?.addEventListener("input", () => renderLearningLevels(progressRows));
+      statusFilter?.addEventListener("change", () => renderLearningLevels(progressRows));
+      container.dataset.wired = "true";
+    }
+
+    const subjectLevels = learningHubLevels.filter((level) =>
+      String(level.subject || "Python").trim().toLowerCase() === learningHubSubject.toLowerCase()
+    );
+    const orderedSubjectLevels = [...subjectLevels].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    const prepared = orderedSubjectLevels.map((level, levelIndex) => {
+      const progress = learningHubProgress[level.id] || null;
+      const completedCount = progress?.completedConceptIds?.length || 0;
+      const totalConcepts = Math.max(Number(level.conceptCount) || 0, completedCount);
+      const pct = totalConcepts ? Math.min(100, Math.round((completedCount / totalConcepts) * 100)) : 0;
+      const isCompleted = !!progress?.mcqPassed;
+      const status = isCompleted ? "completed" : (completedCount > 0 || progress?.mcqUnlocked || progress?.codingUnlocked) ? "in-progress" : "not-started";
+      const statusLabel = isCompleted ? "Completed" : status === "in-progress" ? "In Progress" : "Not Started";
+      const statusClass = isCompleted ? "is-completed" : status === "in-progress" ? "is-progress" : "is-idle";
+      // Admin-defined phases take priority. Legacy levels without a phase are
+      // grouped automatically in sets of six, so old data needs no migration.
+      const autoPhaseStart = Math.floor(levelIndex / 6) * 6 + 1;
+      const autoPhaseEnd = Math.min(autoPhaseStart + 5, orderedSubjectLevels.length);
+      const phase = String(level.phase || `Modules ${autoPhaseStart}–${autoPhaseEnd}`).trim();
+      return { level, progress, completedCount, totalConcepts, pct, status, statusLabel, statusClass, phase };
+    });
+
+    const next = prepared.find((item) => item.status !== "completed") || prepared[0];
+    if (next) {
+      const nextLabel = next.progress?.codingUnlocked ? "Continue coding practice" : next.progress?.mcqUnlocked ? "Continue MCQ test" : next.completedCount ? "Continue learning" : "Start learning";
+      continueCard.innerHTML = `
+        <a class="pv-continue-card" href="learning.html?levelId=${encodeURIComponent(next.level.id)}">
+          <span class="pv-continue-icon"><i class="bi ${learningHubSubject === "SQL" ? "bi-database" : "bi-code-slash"}"></i></span>
+          <span class="pv-continue-copy"><span class="pv-continue-kicker">PICK UP WHERE YOU LEFT OFF · ${learningHubSubject.toUpperCase()}</span><strong>${escapeHtml(next.level.title)}</strong><small>${nextLabel} · ${next.completedCount}/${next.totalConcepts} concepts</small></span>
+          <span class="pv-continue-action">Continue <i class="bi bi-arrow-right"></i></span>
+        </a>`;
+    } else {
+      continueCard.innerHTML = `<div class="pv-learning-empty">No ${learningHubSubject} modules are available yet.</div>`;
+    }
+
+    const queryText = (searchInput?.value || "").trim().toLowerCase();
+    const selectedStatus = statusFilter?.value || "all";
+    const visible = prepared.filter((item) => {
+      const matchesSearch = !queryText || `${item.level.title} ${item.level.description || ""} ${item.phase}`.toLowerCase().includes(queryText);
+      const matchesStatus = selectedStatus === "all" || item.status === selectedStatus;
+      return matchesSearch && matchesStatus;
+    });
+
+    if (!visible.length) {
+      container.innerHTML = `<div class="pv-learning-empty"><i class="bi bi-search me-2"></i>No ${learningHubSubject} modules match these filters.</div>`;
       return;
     }
 
-    const cards = await Promise.all(
-      levels.map(async (level) => {
-        // IMPORTANT: Do not load every concept just to draw the dashboard.
-        // Admin maintains level.conceptCount as the cached total.
-        const progress = progressByLevelId[level.id] || null;
-        const completedCount = progress?.completedConceptIds?.length || 0;
-        const totalConcepts = Math.max(Number(level.conceptCount) || 0, completedCount);
-        const conceptsDone = totalConcepts > 0 && completedCount >= totalConcepts;
-        const pct = totalConcepts ? Math.min(100, Math.round((completedCount / totalConcepts) * 100)) : 0;
-
-        let statusBadge;
-        let ctaLabel = "Start Learning";
-        if (progress?.codingUnlocked) {
-          statusBadge = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Coding Unlocked</span>';
-          ctaLabel = "Continue";
-        } else if (progress?.mcqUnlocked) {
-          statusBadge = conceptsDone
-            ? '<span class="badge bg-warning text-dark"><i class="bi bi-list-check me-1"></i>MCQ Test Ready</span>'
-            : '<span class="badge bg-primary"><i class="bi bi-play-fill me-1"></i>In Progress</span>';
-          ctaLabel = "Continue";
-        } else if (completedCount > 0) {
-          statusBadge = '<span class="badge bg-primary"><i class="bi bi-play-fill me-1"></i>In Progress</span>';
-          ctaLabel = "Continue";
-        } else {
-          statusBadge = '<span class="badge bg-secondary">Not Started</span>';
-        }
-
+    const phases = [...new Set(visible.map((item) => item.phase))];
+    container.innerHTML = phases.map((phase, phaseIndex) => {
+      const items = visible.filter((item) => item.phase === phase);
+      const done = items.filter((item) => item.status === "completed").length;
+      const phaseId = `learning-phase-${learningHubSubject.toLowerCase()}-${phaseIndex}`;
+      const cards = items.map(({ level, completedCount, totalConcepts, pct, status, statusLabel, statusClass, progress }) => {
+        const cta = progress?.codingUnlocked ? "Continue" : progress?.mcqUnlocked || completedCount > 0 ? "Continue" : "Start Learning";
         return `
-          <div class="col-md-6 col-lg-4">
-            <div class="card h-100 learning-level-card">
-              <div class="card-body d-flex flex-column">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                  <h6 class="card-title mb-0">${level.title}</h6>
-                  ${statusBadge}
-                </div>
-                <p class="card-text text-muted small flex-grow-1">${level.description || ""}</p>
-                <div class="small text-muted mb-1">${completedCount}/${totalConcepts} concepts completed</div>
-                <div class="progress mb-3"><div class="progress-bar bg-brand" style="width:${pct}%"></div></div>
-                <a href="learning.html?levelId=${level.id}" class="btn btn-brand btn-sm"><i class="bi bi-mortarboard me-1"></i>${ctaLabel}</a>
-              </div>
-            </div>
-          </div>`;
-      })
-    );
-
-    container.innerHTML = cards.join("");
+          <article class="pv-module-card ${statusClass}">
+            <div class="pv-module-top"><span class="pv-module-number">MODULE ${Number(level.order) || "•"}</span><span class="pv-module-status ${statusClass}">${statusLabel}</span></div>
+            <h6>${escapeHtml(level.title)}</h6>
+            <p>${escapeHtml(level.description || "Build your knowledge step by step.")}</p>
+            <div class="pv-module-progress-meta"><span>${completedCount}/${totalConcepts} concepts</span><strong>${pct}%</strong></div>
+            <div class="pv-module-track"><span style="width:${pct}%"></span></div>
+            <a href="learning.html?levelId=${encodeURIComponent(level.id)}" class="pv-module-link">${cta}<i class="bi bi-arrow-up-right ms-1"></i></a>
+          </article>`;
+      }).join("");
+      return `
+        <section class="pv-learning-phase">
+          <button class="pv-phase-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#${phaseId}" aria-expanded="${phaseIndex === 0}" aria-controls="${phaseId}">
+            <span><strong>${escapeHtml(phase)}</strong><small>${items.length} ${items.length === 1 ? "module" : "modules"} · ${done} completed</small></span>
+            <span class="pv-phase-right"><span class="pv-phase-count">${done}/${items.length}</span><i class="bi bi-chevron-down"></i></span>
+          </button>
+          <div class="collapse ${phaseIndex === 0 ? "show" : ""}" id="${phaseId}"><div class="pv-module-grid">${cards}</div></div>
+        </section>`;
+    }).join("");
   }
   /* ---------- Absent Exam Questions (reference only) ---------- */
   function renderAbsentExams(allExams, submissions) {
