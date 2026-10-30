@@ -699,3 +699,16 @@ pre, .output-container, .submission-panel { background: #0D1018 !important; colo
 button:disabled { cursor:wait; opacity:.7; }
 @media(max-width:575.98px) { .landing-nav-links { gap:.35rem!important; }.landing-nav-links .btn { padding:.35rem .5rem;font-size:.78rem; }.demo-code { min-height:190px;font-size:.85rem; }.demo-panel { padding:1.15rem!important; } }
 @media(prefers-reduced-motion:reduce) { .landing .reveal-on-scroll,.landing .code-window-float,.landing .floating-achievement,.landing .floating-code-chip { animation:none!important;transition:none!important;transform:none!important; } }
+
+/* Unified MCQ / Coding / Mixed exam history and result review */
+.pv-result-summary { background: linear-gradient(145deg, rgba(139,92,246,.12), rgba(34,211,238,.06)); border: 1px solid var(--pv-border); border-radius: 16px; padding: 1rem; color: var(--pv-text); }
+.pv-result-stat { height: 100%; display:flex; flex-direction:column; gap:.25rem; padding:.75rem; border:1px solid var(--pv-border); border-radius:12px; background:var(--pv-panel-2); }
+.pv-result-stat small { color:var(--pv-muted)!important; font-size:.75rem; }
+.pv-result-stat strong { color:var(--pv-text); font-size:1rem; }
+.pv-review-item { padding:.9rem; border:1px solid var(--pv-border); border-radius:12px; background:var(--pv-panel-2); color:var(--pv-text); }
+.pv-review-item.is-correct { border-left:3px solid #34D399; }
+.pv-review-item.is-wrong { border-left:3px solid #F87171; }
+.pv-code-review, .coding-history-code { max-height:360px; overflow:auto; padding:1rem; border:1px solid #303747; border-radius:10px; background:#080A0F!important; color:#E5E7EB!important; font: .84rem/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre; tab-size:4; }
+#viewResultModal .modal-body, #codeSubmissionsModal .modal-body { color:var(--pv-text); }
+#viewResultModal .text-muted, #codeSubmissionsModal .text-muted { color:var(--pv-muted)!important; }
+#historyTableBody td { vertical-align:middle; }

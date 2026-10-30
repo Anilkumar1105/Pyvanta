@@ -180,6 +180,10 @@ href="./favicon.svg">
                 <select id="filterSection" class="form-select form-select-sm"><option value="all">All Sections</option></select>
               </div>
               <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Exam type</label>
+                <select id="filterExamType" class="form-select form-select-sm"><option value="all">All types</option><option value="mcq">MCQ</option><option value="coding">Coding</option><option value="mixed">Mixed</option></select>
+              </div>
+              <div class="col-6 col-md-3">
                 <label class="form-label small mb-1">Student</label>
                 <select id="filterStudent" class="form-select form-select-sm"><option value="all">All Students</option></select>
               </div>
@@ -189,6 +193,7 @@ href="./favicon.svg">
               </div>
             </div>
           </div>
+          <div id="resultsLoadNotice" class="small px-3 py-2 text-muted" role="status" aria-live="polite">Loading saved exam results…</div>
           <div class="table-responsive">
             <table class="table table-hover table-responsive-sm mb-0">
               <thead>
@@ -783,7 +788,7 @@ href="./favicon.svg">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Code Submission History</h5>
+        <h5 class="modal-title">Complete Exam Result</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="codeSubmissionsBody"></div>

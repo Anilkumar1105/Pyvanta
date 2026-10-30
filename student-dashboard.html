@@ -210,7 +210,7 @@ href="./favicon.svg">
   </div></section>
 
   <div class="card">
-    <div class="card-header fw-semibold"><i class="bi bi-clock-history me-1"></i>Exam History</div>
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span class="fw-semibold"><i class="bi bi-clock-history me-1"></i>My Exam History</span><div class="d-flex flex-wrap gap-2"><select id="studentHistoryTypeFilter" class="form-select form-select-sm w-auto" aria-label="Filter exam type"><option value="all">All types</option><option value="mcq">MCQ</option><option value="coding">Coding</option><option value="mixed">Mixed</option></select><select id="studentHistoryResultFilter" class="form-select form-select-sm w-auto" aria-label="Filter exam result"><option value="all">All results</option><option value="pass">Passed</option><option value="fail">Failed</option><option value="pending">Pending</option></select></div></div>
     <div class="table-responsive">
       <table class="table table-hover mb-0 align-middle">
         <thead>
@@ -226,7 +226,7 @@ href="./favicon.svg">
     </div>
   </div>
 
-  <div class="card mt-4">
+  <div class="card mt-4 d-none" id="legacyCodingHistoryPanel">
     <div class="card-header fw-semibold"><i class="bi bi-code-square me-1"></i>Coding History</div>
     <div class="card-body">
       <label class="form-label small mb-1">Select a coding exam to review</label>
@@ -362,7 +362,7 @@ href="./favicon.svg">
     renderExams(relevantActiveExams, submissions);
     renderHistory(submissions);
     wireDownloadReport(submissions);
-    renderCodingHistoryOptions(submissions);
+    // Coding submissions are now reviewed inside each exam's unified result details.
     renderLearningLevels(learningProgress);
     renderBestLearnerStudent();
     renderAllTimePythonTopperStudent();
@@ -598,11 +598,29 @@ href="./favicon.svg">
   }
 
   /* ---------- History table ---------- */
+  let studentHistoryRows = [];
   function renderHistory(submissions) {
+    studentHistoryRows = submissions.filter((s) => s.status !== "in-progress");
+    const typeFilter = document.getElementById("studentHistoryTypeFilter");
+    const resultFilter = document.getElementById("studentHistoryResultFilter");
+    const apply = () => {
+      const type = typeFilter?.value || "all";
+      const result = resultFilter?.value || "all";
+      const rows = studentHistoryRows.filter((s) => {
+        const exam = examById[s.examId] || {};
+        const examType = String(exam.examType || "mcq").toLowerCase();
+        const outcome = s.status === "absent" ? "fail" : exam.showResult === false || s.percentage == null ? "pending" : (isPass(s.percentage) ? "pass" : "fail");
+        return (type === "all" || examType === type) && (result === "all" || outcome === result);
+      }).sort((a, b) => new Date(b.submittedAt || b.startedAt || 0) - new Date(a.submittedAt || a.startedAt || 0));
+      renderHistoryRows(rows);
+    };
+    if (typeFilter && !typeFilter.dataset.wired) { typeFilter.addEventListener("change", apply); typeFilter.dataset.wired = "1"; }
+    if (resultFilter && !resultFilter.dataset.wired) { resultFilter.addEventListener("change", apply); resultFilter.dataset.wired = "1"; }
+    apply();
+  }
+
+  function renderHistoryRows(rows) {
     const tbody = document.getElementById("historyTableBody");
-    const rows = submissions
-      .filter((s) => s.status !== "in-progress")
-      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
 
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No exams completed yet.</td></tr>`;
@@ -631,7 +649,7 @@ href="./favicon.svg">
           <td>${resultBadge}</td>
           <td>${s.violations ?? 0}</td>
           <td>${s.submittedAt ? new Date(s.submittedAt).toLocaleString() : "-"}</td>
-          <td class="text-end">${hidden || s.status === "absent" ? "" : `<button class="btn btn-sm btn-outline-secondary" data-view-result="${s.examId}"><i class="bi bi-eye me-1"></i>View</button>`}</td>
+          <td class="text-end">${hidden || s.status === "absent" ? '<span class="text-muted small">No review</span>' : `<button class="btn btn-sm btn-outline-primary" data-view-result="${s.examId}"><i class="bi bi-eye me-1"></i>View details</button>`}</td>
         </tr>`;
       })
       .join("");
@@ -649,55 +667,40 @@ href="./favicon.svg">
     const pct = sub.percentage;
     const passed = pct != null && isPass(pct);
     const diff = pct != null ? Math.round((pct - PASS_MARK) * 10) / 10 : null;
-    const diffLabel = diff == null ? "" : diff >= 0 ? `${diff}% above pass mark` : `${Math.abs(diff)}% below pass mark`;
+    const diffLabel = diff == null ? "Result is being prepared" : diff >= 0 ? `${diff}% above pass mark` : `${Math.abs(diff)}% below pass mark`;
     const barPct = pct != null ? Math.min(Math.max(pct, 0), 100) : 0;
-
-    document.getElementById("viewResultTitle").textContent = exam.title || "Result";
+    const type = String(exam.examType || "mcq").toLowerCase();
+    const typeLabel = type === "mixed" ? "Mixed exam" : type === "coding" ? "Coding exam" : "MCQ exam";
+    document.getElementById("viewResultTitle").textContent = exam.title || "Exam result";
     document.getElementById("viewResultBody").innerHTML = `
-      <div class="result-badge-icon ${passed ? "pass" : "fail"} mx-auto mb-3">
-        <i class="bi ${passed ? "bi-trophy-fill" : "bi-x-lg"}"></i>
-      </div>
-      <span class="badge ${passed ? "bg-success" : "bg-danger"} fs-6 px-3 py-2 mb-2">
-        <i class="bi ${passed ? "bi-check-circle-fill" : "bi-x-circle-fill"} me-1"></i>${passed ? "PASS" : "FAIL"}
-      </span>
-      <div class="display-6 fw-bold mt-2">${sub.score ?? "-"} <span class="fs-5 text-muted fw-normal">/ ${sub.totalMarks ?? "-"}</span></div>
-      <div class="text-muted small mb-3">${pct != null ? pct + "%" : "-"} scored</div>
+      <div class="pv-result-summary text-start">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><span class="badge ${type === "mixed" ? "bg-primary" : type === "coding" ? "bg-info text-dark" : "bg-secondary"}">${typeLabel}</span><span class="badge ${passed ? "bg-success" : pct == null ? "bg-secondary" : "bg-danger"}">${pct == null ? "PENDING" : passed ? "🎉 PASS" : "💪 KEEP PRACTISING · FAIL"}</span></div>
+        <div class="d-flex align-items-end gap-2 mb-1"><div class="display-5 fw-bold">${sub.score ?? "-"}</div><div class="text-muted pb-2">/ ${sub.totalMarks ?? exam.totalMarks ?? "-"} marks</div><div class="ms-auto text-end"><div class="h3 fw-bold mb-0">${pct == null ? "-" : `${pct}%`}</div><small class="text-muted">Your score</small></div></div>
+        <div class="progress result-progress mb-2"><div class="progress-bar ${passed ? "bg-success" : "bg-danger"}" style="width:${barPct}%"></div></div>
+        <div class="small ${passed ? "text-success" : pct == null ? "text-muted" : "text-danger"} fw-semibold">${diffLabel} · Pass mark ${PASS_MARK}%</div>
+        <div class="row g-2 mt-3"><div class="col-6"><div class="pv-result-stat"><small>MCQ marks</small><strong>${sub.mcqScore ?? (type === "mcq" ? sub.score ?? "-" : "—")}</strong></div></div><div class="col-6"><div class="pv-result-stat"><small>Coding marks</small><strong>${sub.codingScore ?? (type === "coding" ? sub.score ?? "-" : "—")}</strong></div></div><div class="col-6"><div class="pv-result-stat"><small>Violations</small><strong>${sub.violations ?? 0}</strong></div></div><div class="col-6"><div class="pv-result-stat"><small>Submitted</small><strong>${sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—"}</strong></div></div></div>
+      </div><div id="examReviewDetails" class="text-start mt-4"><div class="small text-muted">Loading your question and code review…</div></div>`;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("viewResultModal")).show();
+    await renderUnifiedExamReview(sub, exam);
+  }
 
-      <div class="progress result-progress mb-1 mx-auto">
-        <div class="progress-bar ${passed ? "bg-success" : "bg-danger"}" style="width:${barPct}%"></div>
-        <div class="pass-mark-line" style="left:${PASS_MARK}%" title="Pass mark: ${PASS_MARK}%"></div>
-      </div>
-      <div class="small ${passed ? "text-success" : "text-danger"} fw-semibold mb-1">
-        <i class="bi ${passed ? "bi-arrow-up-circle" : "bi-arrow-down-circle"} me-1"></i>${diffLabel}
-      </div>
-      <div class="small text-muted mb-3">Pass mark: ${PASS_MARK}%</div>
-
-      <div class="row g-2 text-start border-top pt-3">
-        <div class="col-6">
-          <div class="breakdown-box">
-            <div class="stat-icon" style="background-color:#0ea5e9"><i class="bi bi-list-check"></i></div>
-            <div>
-              <div class="stat-label">MCQ Score</div>
-              <div class="stat-value">${sub.mcqScore ?? 0}</div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6">
-          <div class="breakdown-box">
-            <div class="stat-icon" style="background-color:#8b5cf6"><i class="bi bi-code-slash"></i></div>
-            <div>
-              <div class="stat-label">Coding Score</div>
-              <div class="stat-value">${sub.codingScore ?? 0}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="mcqReviewWrap" class="mt-4"></div>
-    `;
-    new bootstrap.Modal(document.getElementById("viewResultModal")).show();
-
-    if (exam.examType === "mcq") {
-      renderMcqReview(sub, exam);
+  async function renderUnifiedExamReview(sub, exam) {
+    const wrap = document.getElementById("examReviewDetails");
+    if (!wrap) return;
+    try {
+      const [questions, codeSubs] = await Promise.all([
+        getQuestionsForExam(sub.examId).catch(() => []),
+        (["coding", "mixed"].includes(String(exam.examType || "").toLowerCase())) ? listCodeSubmissionsForExam(currentUser.uid, sub.examId).catch(() => []) : Promise.resolve([])
+      ]);
+      const mcqQuestions = questions.filter(q => String(q.type || (q.options ? "mcq" : "coding")).toLowerCase() === "mcq" && Array.isArray(q.options) && q.options.length);
+      const codingQuestions = questions.filter(q => String(q.type || (q.options ? "mcq" : "coding")).toLowerCase() === "coding");
+      const answers = sub.answers || {};
+      const mcqHtml = mcqQuestions.length ? `<section class="mb-4"><h6 class="fw-bold mb-3"><i class="bi bi-list-check me-2 text-info"></i>MCQ answer review</h6>${mcqQuestions.map((q,i) => { const selected=answers[q.id]; const correct=Number(q.correctOptionIndex); const ok=selected != null && Number(selected)===correct; return `<div class="pv-review-item ${ok?'is-correct':'is-wrong'} mb-2"><div class="d-flex justify-content-between gap-2"><strong>${i+1}. ${escapeHtmlDash(q.questionText || q.title || 'Question')}</strong><span class="badge ${ok?'bg-success':'bg-danger'}">${selected==null?'Not answered':ok?'Correct':'Incorrect'}</span></div><div class="small mt-2">${q.options.map((opt,oi)=>`<div class="${oi===correct?'text-success fw-semibold':selected!=null&&Number(selected)===oi?'text-danger':''}">${oi===correct?'✓ ':selected!=null&&Number(selected)===oi?'✕ ':''}${escapeHtmlDash(opt)}${oi===correct?' · Correct answer':selected!=null&&Number(selected)===oi?' · Your answer':''}</div>`).join('')}</div></div>`; }).join('')}</section>` : '';
+      const codeHtml = (["coding", "mixed"].includes(String(exam.examType || "").toLowerCase())) ? `<section class="mb-3"><h6 class="fw-bold mb-3"><i class="bi bi-code-slash me-2" style="color:#8B5CF6"></i>Coding submissions</h6>${codingQuestions.length ? codingQuestions.map((q,i)=>{ const attempts=codeSubs.filter(x=>x.questionId===q.id).sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt)); const best=attempts[0]; return `<div class="pv-review-item mb-2"><div class="d-flex justify-content-between gap-2"><strong>${escapeHtmlDash(q.title || `Coding problem ${i+1}`)}</strong><span class="badge bg-primary">${best?`${best.marksObtained ?? 0} marks`: 'Not submitted'}</span></div><p class="small text-muted mt-1 mb-2">${escapeHtmlDash(q.description || '')}</p>${best?`<div class="small text-muted mb-2">${best.testCasesPassed ?? 0}/${best.totalTestCases ?? 0} test cases passed · ${best.executionTimeMs ?? '—'} ms · ${attempts.length} attempt(s)</div><details><summary class="small text-info">View submitted code</summary><pre class="pv-code-review mt-2">${escapeHtmlDash(best.sourceCode || '')}</pre></details>`:'<div class="small text-muted">No submission recorded for this problem.</div>'}</div>`; }).join('') : codeSubs.length ? codeSubs.map((a,i)=>`<div class="pv-review-item mb-2"><strong>Submission ${i+1}</strong><div class="small text-muted">${a.testCasesPassed??0}/${a.totalTestCases??0} test cases · ${a.marksObtained??0} marks</div><details><summary class="small text-info">View code</summary><pre class="pv-code-review mt-2">${escapeHtmlDash(a.sourceCode||'')}</pre></details></div>`).join('') : '<div class="small text-muted">No coding submissions found for this exam.</div>'}</section>` : '';
+      wrap.innerHTML = `${mcqHtml}${codeHtml}${!mcqHtml&&!codeHtml?'<div class="small text-muted">No detailed question review is available for this attempt.</div>':''}`;
+    } catch (error) {
+      wrap.innerHTML = `<div class="alert alert-warning small">Could not load detailed review. Your saved score is still available above.</div>`;
+      console.warn('Exam review could not be loaded', error);
     }
   }
 

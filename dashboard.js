@@ -254,11 +254,7 @@ export function renderResultsTable(tbodyEl, rows) {
             title="${r.status === "absent" ? "Add Marks" : "Edit Marks"}">
             <i class="bi bi-pencil-square"></i>
           </button>
-          ${
-            (r.examType === "coding" || r.examType === "mixed") && r.status !== "absent"
-              ? `<button class="btn btn-sm btn-outline-secondary" data-view-code="${r.studentId}" data-exam-id="${r.examId}" title="View Code"><i class="bi bi-code-slash"></i></button>`
-              : ""
-          }
+          ${r.status !== "absent" ? `<button class="btn btn-sm btn-outline-info ms-1" data-view-result-detail="${r.studentId}" data-exam-id="${r.examId}" title="View full exam details"><i class="bi bi-eye"></i></button>` : ""}
         </td>
       </tr>`
     )
@@ -303,7 +299,7 @@ export function buildResultRows(submissions, students, exams, filters = {}) {
         submissionId: sub.id,
         examId: sub.examId,
         examTitle: exam.title,
-        examType: exam.examType,
+        examType: String(exam.examType || "mcq").toLowerCase(),
         score: sub.score,
         percentage: sub.percentage,
         result: sub.status === "absent" ? "ABSENT" : sub.percentage != null ? (isPass(sub.percentage) ? "PASS" : "FAIL") : "-",
@@ -315,6 +311,7 @@ export function buildResultRows(submissions, students, exams, filters = {}) {
     })
     .filter((row) => {
       if (filters.examId && filters.examId !== "all" && row.examId !== filters.examId) return false;
+      if (filters.examType && filters.examType !== "all" && row.examType !== filters.examType) return false;
       if (filters.section && filters.section !== "all" && row.section !== filters.section) return false;
       if (filters.studentId && filters.studentId !== "all" && row.studentId !== filters.studentId) return false;
       if (filters.date) {

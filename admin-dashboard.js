@@ -96,6 +96,7 @@ wireLogoutButtons();
 let students = [];
 let exams = [];
 let submissions = [];
+let submissionsLoadError = null;
 let studentPoints = [];
 let dailyLearningActivity = [];
 let currentSectionFilter = "all";
@@ -138,10 +139,11 @@ requireRole("admin", async (user, profile) => {
 });
 
 async function loadEverything() {
+  submissionsLoadError = null;
   [students, exams, submissions, studentPoints, dailyLearningActivity] = await Promise.all([
     listStudents("all"),
     listExams(),
-    listSubmissions(),
+    listSubmissions().catch((error) => { submissionsLoadError = error; console.error("Admin could not read submissions:", error); return []; }),
     listStudentPoints(),
     listDailyLearningActivity()
   ]);
@@ -441,7 +443,7 @@ function populateFilterOptions() {
     `<option value="all">All Students</option>` +
     students.map((s) => `<option value="${s.uid}">${s.name} (${s.rollNumber})</option>`).join("");
 
-  ["filterExam", "filterSection", "filterStudent", "filterDate"].forEach((id) => {
+  ["filterExam", "filterSection", "filterStudent", "filterDate", "filterExamType"].forEach((id) => {
     document.getElementById(id).addEventListener("change", applyFiltersAndRenderResults);
   });
 }
@@ -451,7 +453,8 @@ function currentFilters() {
     examId: document.getElementById("filterExam").value,
     section: document.getElementById("filterSection").value,
     studentId: document.getElementById("filterStudent").value,
-    date: document.getElementById("filterDate").value
+    date: document.getElementById("filterDate").value,
+    examType: document.getElementById("filterExamType")?.value || "all"
   };
 }
 
@@ -598,6 +601,16 @@ function applyFiltersAndRenderResults() {
   const filters = currentFilters();
   const rows = buildResultRowsWithAbsent(submissions, students, exams, filters, schedulesByExamId);
   renderResultsTable(document.getElementById("resultsTableBody"), rows);
+  const notice = document.getElementById("resultsLoadNotice");
+  if (notice) {
+    if (submissionsLoadError) {
+      notice.className = "small px-3 py-2 text-danger";
+      notice.textContent = `Could not load saved results: ${submissionsLoadError.message || "Firestore read failed"}. Check that the signed-in account has role = admin in users/{uid} and that Firestore rules allow admins to read submissions.`;
+    } else {
+      notice.className = "small px-3 py-2 text-muted";
+      notice.textContent = `${rows.length} result row(s) shown · ${submissions.length} saved submission(s) loaded. Use filters to view MCQ, Coding or Mixed exams.`;
+    }
+  }
 
   document.querySelectorAll("[data-edit-result]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -611,8 +624,8 @@ function applyFiltersAndRenderResults() {
     });
   });
 
-  document.querySelectorAll("[data-view-code]").forEach((btn) => {
-    btn.addEventListener("click", () => openCodeSubmissionsModal(btn.dataset.viewCode, btn.dataset.examId));
+  document.querySelectorAll("[data-view-result-detail]").forEach((btn) => {
+    btn.addEventListener("click", () => openAdminExamResultModal(btn.dataset.viewResultDetail, btn.dataset.examId));
   });
 
   const reportTitle = buildReportTitle(filters, exams);
@@ -1688,48 +1701,32 @@ document.getElementById("testRunQuestionBtn").addEventListener("click", async ()
 /* ============================================================
    ADMIN: VIEW A STUDENT'S CODE SUBMISSION HISTORY (per exam)
    ============================================================ */
-async function openCodeSubmissionsModal(studentId, examIdForCode) {
+async function openAdminExamResultModal(studentId, examIdForCode) {
   const body = document.getElementById("codeSubmissionsBody");
-  body.innerHTML = `<div class="text-muted small">Loading submissions...</div>`;
-  new bootstrap.Modal(document.getElementById("codeSubmissionsModal")).show();
-
+  const modalEl = document.getElementById("codeSubmissionsModal");
   const student = students.find((s) => s.uid === studentId);
   const exam = exams.find((e) => e.id === examIdForCode);
-  const examQuestions = await listQuestionsForExam(examIdForCode);
-  const subs = await listCodeSubmissionsForExam(studentId, examIdForCode);
-
-  if (!subs.length) {
-    body.innerHTML = `<div class="text-muted small">No code submissions recorded for ${student?.name || "this student"} on this exam.</div>`;
-    return;
+  const submission = submissions.find((s) => s.studentId === studentId && s.examId === examIdForCode);
+  modalEl.querySelector(".modal-title").textContent = "Complete Exam Result";
+  body.innerHTML = `<div class="text-muted small">Loading result details…</div>`;
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  try {
+    const [examQuestions, codeSubs] = await Promise.all([
+      listQuestionsForExam(examIdForCode).catch(() => []),
+      listCodeSubmissionsForExam(studentId, examIdForCode).catch(() => [])
+    ]);
+    const type = String(exam?.examType || "mcq").toLowerCase();
+    const mcqs = examQuestions.filter(q => String(q.type || (q.options ? "mcq" : "coding")).toLowerCase() === "mcq" && Array.isArray(q.options) && q.options.length);
+    const coding = examQuestions.filter(q => String(q.type || (q.options ? "mcq" : "coding")).toLowerCase() === "coding");
+    const answers = submission?.answers || {};
+    const summary = `<div class="pv-result-summary mb-4"><div class="d-flex flex-wrap justify-content-between gap-2"><div><div class="fw-bold">${escapeHtmlL(student?.name || 'Student')}</div><div class="small text-muted">${escapeHtmlL(student?.rollNumber || '')} · ${escapeHtmlL(student?.section || '')}</div></div><span class="badge ${submission?.percentage != null && isPass(submission.percentage) ? 'bg-success':'bg-danger'}">${submission?.percentage != null ? (isPass(submission.percentage)?'PASS':'FAIL'):'PENDING'}</span></div><div class="d-flex align-items-end gap-3 mt-3"><strong class="display-6">${submission?.score ?? '—'}</strong><span class="text-muted mb-2">/ ${submission?.totalMarks ?? exam?.totalMarks ?? '—'} marks</span><strong class="ms-auto h3 mb-0">${submission?.percentage != null ? `${submission.percentage}%`:'—'}</strong></div><div class="small text-muted mt-2">${type.toUpperCase()} · Violations: ${submission?.violations ?? 0} · ${submission?.submittedAt ? new Date(submission.submittedAt).toLocaleString() : 'Not submitted'}</div></div>`;
+    const mcqHtml = mcqs.length ? `<section class="mb-4"><h6 class="fw-bold">MCQ answer review</h6>${mcqs.map((q,i)=>{const selected=answers[q.id];const correct=Number(q.correctOptionIndex);const ok=selected!=null&&Number(selected)===correct;return `<div class="pv-review-item ${ok?'is-correct':'is-wrong'} mb-2"><div class="d-flex justify-content-between gap-2"><strong>${i+1}. ${escapeHtmlL(q.questionText || q.title || 'Question')}</strong><span class="badge ${ok?'bg-success':'bg-danger'}">${selected==null?'Not answered':ok?'Correct':'Incorrect'}</span></div><div class="small mt-2">${q.options.map((opt,oi)=>`<div class="${oi===correct?'text-success fw-semibold':selected!=null&&Number(selected)===oi?'text-danger':''}">${oi===correct?'✓ ':selected!=null&&Number(selected)===oi?'✕ ':''}${escapeHtmlL(opt)}</div>`).join('')}</div></div>`}).join('')}</section>` : '';
+    const codeHtml = (type==='coding'||type==='mixed') ? `<section><h6 class="fw-bold">Coding submissions</h6>${coding.length ? coding.map((q,i)=>{const attempts=codeSubs.filter(a=>a.questionId===q.id).sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));const best=attempts[0];return `<div class="pv-review-item mb-2"><div class="d-flex justify-content-between gap-2"><strong>${escapeHtmlL(q.title||`Coding problem ${i+1}`)}</strong><span class="badge bg-primary">${best?`${best.marksObtained??0} marks`:'Not submitted'}</span></div><div class="small text-muted mb-2">${best?`${best.testCasesPassed??0}/${best.totalTestCases??0} tests passed · ${best.executionTimeMs??'—'} ms · ${attempts.length} attempt(s)`:'No submission recorded'}</div>${best?`<details><summary class="small text-info">View submitted code</summary><pre class="pv-code-review mt-2">${escapeHtmlL(best.sourceCode||'')}</pre></details>`:''}</div>`}).join('') : '<div class="small text-muted">No coding questions found.</div>'}</section>` : '';
+    body.innerHTML = `${summary}${mcqHtml}${codeHtml}${!mcqHtml&&!codeHtml?'<div class="small text-muted">No question-level review is available for this attempt.</div>':''}`;
+  } catch (err) {
+    console.error('Admin result detail load failed:', err);
+    body.innerHTML = `<div class="alert alert-warning small">Could not load question-level details. Check the browser console and Firestore permissions. The result summary remains in the Results table.</div>`;
   }
-
-  const byQuestion = {};
-  subs.forEach((s) => {
-    (byQuestion[s.questionId] = byQuestion[s.questionId] || []).push(s);
-  });
-
-  body.innerHTML = Object.entries(byQuestion)
-    .map(([questionId, attempts]) => {
-      const q = examQuestions.find((x) => x.id === questionId);
-      attempts.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-      return `
-        <h6 class="mt-2">${q?.title || "Deleted question"}</h6>
-        ${attempts
-          .map(
-            (a) => `
-          <div class="question-card p-2 mb-2">
-            <div class="d-flex justify-content-between small text-muted">
-              <span>${new Date(a.submittedAt).toLocaleString()}</span>
-              <span>${a.testCasesPassed}/${a.totalTestCases} passed &middot; ${a.marksObtained} marks &middot; ${a.executionTimeMs} ms</span>
-            </div>
-            <pre class="mono bg-light p-2 rounded mt-1 mb-0" style="white-space:pre-wrap;">${(a.sourceCode || "").replace(/</g, "&lt;")}</pre>
-            ${a.errorMessage ? `<div class="text-danger small mt-1">${a.errorMessage}</div>` : ""}
-          </div>`
-          )
-          .join("")}
-      `;
-    })
-    .join("");
 }
 
 /* ============================================================
