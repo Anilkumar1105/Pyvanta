@@ -59,3 +59,16 @@ Student flow: **My Certificates → choose Python or SQL → Check eligibility &
 4. Test with a subscribed student who has 5 completed exams in one course and a 70%+ average, then test an unsubscribed student and a student below the threshold.
 
 The eligibility check and certificate creation run in a callable Cloud Function using the Admin SDK; students cannot directly write certificate records or certificate request records under the updated rules. The function checks for an existing certificate before issuance and uses an issuance lock to prevent duplicate concurrent requests. App Check is not enforced in this initial function configuration; enable and enforce it after registering the web app and testing valid clients. Existing old pending admin-review requests are legacy records and are not auto-approved.
+
+
+### CORS troubleshooting (Vercel)
+
+The callable function explicitly enables CORS for the deployed web client. If the browser still reports a failed OPTIONS preflight, verify that the latest `requestCourseCertificate` callable has actually deployed to `us-central1` in the same Firebase project as the frontend. From the project root run:
+
+```bash
+firebase use
+firebase deploy --only functions:requestCourseCertificate
+firebase functions:list
+```
+
+Confirm the listed function is `requestCourseCertificate`, region `us-central1`, and generation 2. Then hard-refresh the Vercel site. Do not replace the callable with a plain `onRequest` handler unless the frontend is also changed from `httpsCallable`. The callable SDK sends the required authentication token and callable request envelope. If preflight still fails, inspect the function deployment logs and the HTTP status for the OPTIONS request; a missing function, wrong region/project, or failed deployment can look like a CORS problem in the browser.
