@@ -25,6 +25,8 @@ wireLogoutButtons();
 let currentUser = null;
 let questionGroups = [];
 let cmEditor = null;
+let activeSubject = "Python";
+let sqlEnginePromise = null;
 
 requireRole("student", async (user) => {
   currentUser = user;
@@ -91,11 +93,16 @@ async function renderContent(points) {
   document.getElementById("contentPoints").textContent = points;
 
   const questions = await listPublishedSpecialQuestions();
-  questionGroups = groupQuestionsByCompany(questions);
+  const subjectSelect = document.getElementById("specialSubjectFilterStudent");
+  if (subjectSelect) {
+    subjectSelect.value = activeSubject;
+    subjectSelect.onchange = () => { activeSubject = subjectSelect.value; renderContent(points); };
+  }
+  questionGroups = groupQuestionsByCompany(questions.filter(q => (q.subject || q.language || "Python").toLowerCase() === activeSubject.toLowerCase()));
 
   const wrap = document.getElementById("companySections");
   if (!questionGroups.length) {
-    wrap.innerHTML = `<div class="text-center text-white-50 py-5">No exclusive questions have been published yet - check back soon!</div>`;
+    wrap.innerHTML = `<div class="text-center text-white-50 py-5">No ${activeSubject} special questions have been published yet. Check back soon!</div>`;
     return;
   }
 
@@ -227,14 +234,15 @@ function renderQuestionDetail(q, points) {
           ${q.inputDescription ? `<p class="small text-white-75 preserve-lines"><strong>Input:</strong> ${escapeHtml(q.inputDescription)}</p>` : ""}
           ${q.outputDescription ? `<p class="small text-white-75 preserve-lines"><strong>Output:</strong> ${escapeHtml(q.outputDescription)}</p>` : ""}
           ${q.constraints ? `<p class="small text-white-50 preserve-lines"><strong>Constraints:</strong> ${escapeHtml(q.constraints)}</p>` : ""}
+          ${(q.subject || q.language || "Python").toLowerCase()==="sql" ? `<div class="small text-info mb-2">SQLite schema is loaded automatically for this challenge.</div>` : ""}
           ${samplesHtml}
           <div id="specialSubmissionHistory" class="mt-3"></div>
         </div>
         <div class="col-lg-7">
-          <textarea id="specialCodeEditor">${escapeHtml(q.starterCode || "")}</textarea>
+          <textarea id="specialCodeEditor">${escapeHtml(q.starterCode || q.starterQuery || "")}</textarea>
           <div class="d-flex align-items-center gap-2 mt-2">
-            <button class="btn btn-outline-light btn-sm" id="specialRunBtn"><i class="bi bi-play-fill me-1"></i>Run Code</button>
-            <button class="btn btn-special btn-sm" id="specialSubmitBtn"><i class="bi bi-cloud-arrow-up me-1"></i>Submit Code</button>
+            <button class="btn btn-outline-light btn-sm" id="specialRunBtn"><i class="bi bi-play-fill me-1"></i>${(q.subject || q.language || "Python").toLowerCase()==="sql"?"Run Query":"Run Code"}</button>
+            <button class="btn btn-special btn-sm" id="specialSubmitBtn"><i class="bi bi-cloud-arrow-up me-1"></i>${(q.subject || q.language || "Python").toLowerCase()==="sql"?"Submit Query":"Submit Code"}</button>
             <span class="small text-white-50" id="specialPythonStatus"></span>
           </div>
           <div id="specialTestResults" class="d-flex flex-column gap-2 mt-3"></div>
@@ -245,8 +253,9 @@ function renderQuestionDetail(q, points) {
 
   document.getElementById("backToSpecialListBtn").addEventListener("click", () => renderContent(points));
 
+  const isSql = (q.subject || q.language || "Python").toLowerCase() === "sql";
   cmEditor = CodeMirror.fromTextArea(document.getElementById("specialCodeEditor"), {
-    mode: "python",
+    mode: isSql ? "text/x-sql" : "python",
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,
@@ -256,9 +265,71 @@ function renderQuestionDetail(q, points) {
   });
   cmEditor.setSize("100%", "300px");
 
-  document.getElementById("specialRunBtn").addEventListener("click", () => runVisible(q));
-  document.getElementById("specialSubmitBtn").addEventListener("click", () => submitSpecial(q));
+  document.getElementById("specialRunBtn").addEventListener("click", () => isSql ? runSqlVisible(q) : runVisible(q));
+  document.getElementById("specialSubmitBtn").addEventListener("click", () => isSql ? submitSqlSpecial(q) : submitSpecial(q));
   renderSpecialHistory(q.id);
+}
+
+
+async function getSqlEngine() {
+  if (!sqlEnginePromise) sqlEnginePromise = initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+  return sqlEnginePromise;
+}
+function normalizeSqlRows(rows) {
+  return rows.map(row => Object.fromEntries(Object.keys(row).sort().map(k => [k, row[k]])))
+    .sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+}
+async function executeSqlQuestion(q, queryText, testCases) {
+  const SQL = await getSqlEngine();
+  const results = [];
+  for (let i=0;i<testCases.length;i++) {
+    const started=performance.now();
+    let db=null;
+    try {
+      db=new SQL.Database();
+      db.exec(q.schemaSql || "");
+      const output=db.exec(queryText);
+      const rows=output.length ? output.flatMap(t=>t.values.map(values=>Object.fromEntries(t.columns.map((c,j)=>[c,values[j]])))) : [];
+      const expectedRaw=testCases[i].expectedOutput || q.expectedOutput || "[]";
+      const expected=JSON.parse(expectedRaw);
+      const passed=JSON.stringify(normalizeSqlRows(rows))===JSON.stringify(normalizeSqlRows(expected));
+      results.push({passed,actualOutput:JSON.stringify(rows),expectedOutput:JSON.stringify(expected),executionTimeMs:Math.round(performance.now()-started),errorMessage:""});
+    } catch(error) {
+      results.push({passed:false,actualOutput:"",expectedOutput:testCases[i].expectedOutput||q.expectedOutput||"[]",executionTimeMs:Math.round(performance.now()-started),errorMessage:error.message});
+    } finally { if(db) db.close(); }
+  }
+  return results;
+}
+function renderSqlResults(results, publicCount, statusEl, resultsEl, prefix) {
+  const passed=results.filter(r=>r.passed).length;
+  statusEl.textContent=`${passed} / ${results.length} ${prefix} test cases passed`;
+  resultsEl.innerHTML=results.map((r,i)=>`<div class="testcase-result ${r.passed?"pass":"fail"}"><strong>${i<publicCount?"Public":"Hidden"} test ${i<publicCount?i+1:i-publicCount+1}: ${r.passed?"PASSED":"FAILED"}</strong><div><strong>Expected rows:</strong><pre class="testcase-value">${escapeHtml(r.expectedOutput)}</pre></div><div><strong>Your rows:</strong><pre class="testcase-value">${escapeHtml(r.actualOutput)}</pre></div>${r.errorMessage?`<div><strong>Error:</strong> ${escapeHtml(r.errorMessage)}</div>`:""}</div>`).join("");
+  return passed;
+}
+async function runSqlVisible(q) {
+  const statusEl=document.getElementById("specialPythonStatus"),resultsEl=document.getElementById("specialTestResults");
+  statusEl.textContent="Running SQLite query…";resultsEl.innerHTML="";
+  try {
+    const tests=q.visibleTestCases?.length?q.visibleTestCases:[{expectedOutput:q.expectedOutput||"[]"}];
+    const results=await executeSqlQuestion(q,cmEditor.getValue(),tests);
+    renderSqlResults(results,results.length,statusEl,resultsEl,"public");
+  } catch(error) { statusEl.textContent=`Could not run SQL: ${error.message}`; }
+}
+async function submitSqlSpecial(q) {
+  const statusEl=document.getElementById("specialPythonStatus"),resultsEl=document.getElementById("specialTestResults"),btn=document.getElementById("specialSubmitBtn");
+  btn.disabled=true;statusEl.textContent="Submitting and checking SQL query…";
+  try {
+    const tests=[...(q.visibleTestCases||[]),...(q.hiddenTestCases||[])];
+    const allTests=tests.length?tests:[{expectedOutput:q.expectedOutput||"[]"}];
+    const results=await executeSqlQuestion(q,cmEditor.getValue(),allTests);
+    const passed=results.filter(r=>r.passed).length, marks=computeCodingMarks(q.marks||10,results);
+    await createSpecialCodeSubmission({studentId:currentUser.uid,questionId:q.id,language:"sql",sourceCode:cmEditor.getValue(),executionStatus:results.some(r=>r.errorMessage)?"error":"completed",testCasesPassed:passed,totalTestCases:allTests.length,marksObtained:marks,executionTimeMs:results.reduce((n,r)=>n+r.executionTimeMs,0),errorMessage:results.find(r=>r.errorMessage)?.errorMessage||null});
+    if(passed===allTests.length) markCodingQuestionCompleted("special-sql",q.id);
+    renderSqlResults(results,(q.visibleTestCases||[]).length,statusEl,resultsEl,"total");
+    statusEl.textContent=`Submitted: ${passed}/${allTests.length} test cases · ${marks}/${q.marks||10} marks`;
+    renderSpecialHistory(q.id);
+  } catch(error) { statusEl.textContent=`Could not submit SQL query: ${error.message}`; }
+  finally { btn.disabled=false; }
 }
 
 async function runVisible(q) {

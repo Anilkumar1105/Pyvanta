@@ -34,7 +34,6 @@ href="./favicon.svg">
       <a class="nav-link" data-pane="studentsPane"><i class="bi bi-people"></i> Students</a>
       <a class="nav-link" data-pane="examsPane"><i class="bi bi-journal-code"></i> Exams</a>
       <a class="nav-link" data-pane="learningPane"><i class="bi bi-mortarboard"></i> Learning</a>
-      <a class="nav-link" href="sql-content-admin.html"><i class="bi bi-database-gear"></i> SQL Content</a>
       <a class="nav-link" data-pane="specialPane"><i class="bi bi-gem"></i> Special Section</a>
       <div class="admin-sidebar-section">Recognition</div>
       <a class="admin-sidebar-link" href="admin-recognition.html"><i class="bi bi-award"></i> Certificates & Promotions</a>
@@ -444,7 +443,8 @@ href="./favicon.svg">
             <p class="text-muted small mb-0">Exclusive company-style interview practice questions, unlocked once a student reaches 200 Learning Points.</p>
           </div>
           <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <button class="btn btn-outline-primary btn-sm" id="downloadSpecialCodingTemplateBtn"><i class="bi bi-download me-1"></i>Coding Excel Template</button>
+            <button class="btn btn-outline-primary btn-sm" id="downloadSpecialCodingTemplateBtn"><i class="bi bi-download me-1"></i>Python Excel Template</button>
+            <button class="btn btn-outline-info btn-sm" id="downloadSpecialSqlTemplateBtn"><i class="bi bi-database me-1"></i>SQL Query Excel</button>
             <button class="btn btn-outline-secondary btn-sm" id="importSpecialQuestionsBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Excel / PDF</button>
             <button class="btn btn-outline-primary btn-sm" id="importSpecialBeginnerBtn"><i class="bi bi-cloud-download me-1"></i>Import Beginner DSA</button>
             <button class="btn btn-brand btn-sm" id="addSpecialQuestionBtn"><i class="bi bi-plus-lg me-1"></i>Add Question</button>
@@ -452,6 +452,7 @@ href="./favicon.svg">
         </div>
 
         <div class="d-flex flex-wrap gap-2 mb-3">
+          <select id="specialSubjectFilter" class="form-select form-select-sm w-auto"><option value="all">All Subjects</option><option value="Python">Python</option><option value="SQL">SQL</option></select>
           <select id="specialCompanyFilter" class="form-select form-select-sm w-auto">
             <option value="all">All Companies</option>
           </select>
@@ -676,6 +677,10 @@ href="./favicon.svg">
 
           <div class="row g-3">
             <div class="col-md-8">
+              <div class="mb-3">
+                <label class="form-label">Subject / Language</label>
+                <select class="form-select" id="spSubjectInput"><option value="Python">Python</option><option value="SQL">SQL</option></select>
+              </div>
               <div class="mb-3">
                 <label class="form-label">Question Title</label>
                 <input type="text" class="form-control" id="codingTitleInput" required />
@@ -979,6 +984,10 @@ href="./favicon.svg">
           <div class="row g-3">
             <div class="col-md-8">
               <div class="mb-3">
+                <label class="form-label">Subject / Language</label>
+                <select class="form-select" id="spSubjectInput"><option value="Python">Python</option><option value="SQL">SQL</option></select>
+              </div>
+              <div class="mb-3">
                 <label class="form-label">Question Title</label>
                 <input type="text" class="form-control" id="lcTitleInput" required />
               </div>
@@ -1083,6 +1092,10 @@ href="./favicon.svg">
           <div class="row g-3">
             <div class="col-md-8">
               <div class="mb-3">
+                <label class="form-label">Subject / Language</label>
+                <select class="form-select" id="spSubjectInput"><option value="Python">Python</option><option value="SQL">SQL</option></select>
+              </div>
+              <div class="mb-3">
                 <label class="form-label">Question Title</label>
                 <input type="text" class="form-control" id="spTitleInput" required />
               </div>
@@ -1145,8 +1158,12 @@ href="./favicon.svg">
             </div>
           </div>
           <div class="mb-3">
-            <label class="form-label">Starter Code (Python)</label>
+            <label class="form-label" id="spStarterLabel">Starter Code (Python)</label>
             <textarea class="form-control mono" id="spStarterInput" rows="4"></textarea>
+            <div class="row g-3 mt-1" id="spSqlFields" hidden>
+              <div class="col-12"><label class="form-label">SQLite schema / setup SQL</label><textarea class="form-control mono" id="spSchemaSqlInput" rows="5" placeholder="CREATE TABLE ...; INSERT INTO ...;"></textarea></div>
+              <div class="col-12"><label class="form-label">Expected output (JSON rows)</label><textarea class="form-control mono" id="spExpectedOutputInput" rows="3" placeholder='[{"name":"Anil","marks":90}]'></textarea></div>
+            </div>
           </div>
 
           <label class="form-label fw-semibold">Sample Input / Output</label>
@@ -1241,7 +1258,7 @@ href="./favicon.svg">
   <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Import Questions from Excel or PDF</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
-      <div class="alert alert-info small"><strong>Excel is recommended.</strong> Download the matching template and fill one question per row. For mixed exams, import the MCQ and Coding templates into the same exam. Special Section accepts coding questions only. PDF import supports text-based PDFs using the labeled format below; scanned PDFs are not supported.</div>
+      <div class="alert alert-info small"><strong>Excel is recommended.</strong> Download the matching template and fill one question per row. For mixed exams, import the MCQ and Coding templates into the same exam. Special Section accepts Python coding questions and SQL query questions. PDF import supports text-based PDFs using the labeled format below; scanned PDFs are not supported.</div>
       <div class="mb-3"><label class="form-label">Question file (.xlsx, .xls, .pdf)</label><input type="file" id="questionImportFile" class="form-control" accept=".xlsx,.xls,.pdf" /></div>
       <div class="small text-muted mb-3">PDF format: separate questions with <code>---</code>. MCQ fields: <code>TYPE: MCQ</code>, <code>QUESTION:</code>, <code>OPTIONS:</code> (use | between options), <code>ANSWER:</code> (option text or A/B/C/D), <code>MARKS:</code>. Coding fields: <code>TYPE: CODING</code>, <code>TITLE:</code>, <code>DESCRIPTION:</code>, <code>INPUT:</code>, <code>OUTPUT:</code>, <code>CONSTRAINTS:</code>, <code>MARKS:</code>, <code>STARTER_CODE:</code>, <code>EXAMPLES_JSON:</code>, <code>PUBLIC_TESTS_JSON:</code>, <code>HIDDEN_TESTS_JSON:</code>. JSON test fields should be arrays of objects with input and output/expectedOutput properties.</div>
       <div id="questionImportStatus" class="small"></div><div id="questionImportPreview" class="mt-3"></div>

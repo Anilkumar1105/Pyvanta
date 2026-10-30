@@ -126,6 +126,7 @@ let specialQuestions = [];
 let specialQuestionsLoaded = false;
 let editingSpecialQuestionId = null;
 let specialCompanyFilterValue = "all";
+let specialSubjectFilterValue = "all";
 let specialBeginnerSelectedTopics = new Set();
 
 /* ============================================================
@@ -1612,6 +1613,15 @@ document.getElementById("codingForm").addEventListener("submit", async (e) => {
   const publish = document.activeElement?.dataset?.publish === "true";
   const data = { ...collectCodingFormData(), published: publish };
 
+  if (data.subject === "SQL") {
+    data.starterQuery = data.starterCode;
+    if (!data.schemaSql.trim() || !data.expectedOutput.trim()) {
+      errorEl.textContent = "SQL questions require SQLite schema/setup SQL and expected output JSON.";
+      errorEl.classList.remove("d-none"); return;
+    }
+    data.visibleTestCases = [{input:"", expectedOutput:data.expectedOutput}];
+    data.hiddenTestCases = [];
+  }
   if (!data.visibleTestCases.length && !data.hiddenTestCases.length) {
     errorEl.textContent = "Add at least one test case (public or hidden).";
     errorEl.classList.remove("d-none");
@@ -2341,6 +2351,15 @@ document.getElementById("learningCodingForm").addEventListener("submit", async (
     hiddenTestCases: collectDynamicRows("lcHiddenTestsWrap", true).filter((r) => r.input || r.expectedOutput)
   };
 
+  if (data.subject === "SQL") {
+    data.starterQuery = data.starterCode;
+    if (!data.schemaSql.trim() || !data.expectedOutput.trim()) {
+      errorEl.textContent = "SQL questions require SQLite schema/setup SQL and expected output JSON.";
+      errorEl.classList.remove("d-none"); return;
+    }
+    data.visibleTestCases = [{input:"", expectedOutput:data.expectedOutput}];
+    data.hiddenTestCases = [];
+  }
   if (!data.visibleTestCases.length && !data.hiddenTestCases.length) {
     errorEl.textContent = "Add at least one test case (public or hidden).";
     errorEl.classList.remove("d-none");
@@ -2459,6 +2478,15 @@ function downloadQuestionTemplate(kind, special=false) {
 document.getElementById("downloadMcqTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("mcq"));
 document.getElementById("downloadCodingTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("coding"));
 document.getElementById("downloadSpecialCodingTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("coding",true));
+document.getElementById("downloadSpecialSqlTemplateBtn")?.addEventListener("click", () => {
+  if (!window.XLSX) { alert("Excel library did not load. Refresh the page and try again."); return; }
+  const headers=["Type","Title","Description","SchemaSQL","StarterQuery","ExpectedOutput","Difficulty","Marks","Company","Published"];
+  const sample=["SQL_QUERY","Top Scoring Students","Return students with marks above 80, sorted by marks descending.","CREATE TABLE students(id INTEGER PRIMARY KEY, name TEXT, marks INTEGER); INSERT INTO students VALUES (1,'Anil',85),(2,'Ravi',65),(3,'Priya',92);","SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;",'[{"name":"Anil","marks":85},{"name":"Priya","marks":92}]',"easy",10,"TCS",true];
+  const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet([headers,sample]);
+  ws["!cols"]=headers.map(x=>({wch:Math.max(16,Math.min(42,x.length+5))}));
+  XLSX.utils.book_append_sheet(wb,ws,"SQL Special Queries");
+  XLSX.writeFile(wb,"pyvanta-special-sql-query-template.xlsx");
+});
 document.getElementById("downloadLearningMcqTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("mcq"));
 document.getElementById("downloadLearningCodingTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("coding"));
 document.getElementById("importLearningMcqBtn")?.addEventListener("click",()=>openQuestionImport("learning-mcq"));
@@ -2502,6 +2530,17 @@ function rowToImportQuestion(row) {
     else correctOptionIndex=options.findIndex(o=>o.toLowerCase()===answer.toLowerCase());
     if(correctOptionIndex<0||correctOptionIndex>=options.length) throw new Error(`MCQ correct answer "${answer}" must match an option or A/B/C/D.`);
     return {type:"mcq",questionText,options,correctOptionIndex,marks,published: get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published"))))};
+  }
+  if(type==="sql_query"||type==="sql"||type==="query") {
+    const title=cleanCell(get("title","questiontitle"));
+    const description=cleanCell(get("description","problemstatement","questiontext"));
+    const schemaSql=String(get("schemasql","setupsql","database"));
+    const starterCode=String(get("starterquery","startercode","query")||"SELECT * FROM ");
+    const expectedOutput=String(get("expectedoutput","expectedrows","answer"));
+    if(!title||!description||!schemaSql.trim()||!expectedOutput.trim()) throw new Error("SQL_QUERY needs Title, Description, SchemaSQL and ExpectedOutput JSON.");
+    let expected;try{expected=JSON.parse(expectedOutput);}catch{throw new Error(`SQL query "${title}" ExpectedOutput must be valid JSON.`);}
+    if(!Array.isArray(expected)) throw new Error(`SQL query "${title}" ExpectedOutput must be a JSON array of rows.`);
+    return {type:"sql_query",subject:"SQL",language:"sql",title,description,schemaSql,starterCode,starterQuery:starterCode,expectedOutput:JSON.stringify(expected),visibleTestCases:[{input:"",expectedOutput:JSON.stringify(expected)}],hiddenTestCases:parseJsonCell(get("hiddentestsjson","hiddentests"),[]),difficulty:cleanCell(get("difficulty")).toLowerCase()||"medium",marks,timeLimit:Number(get("timelimit")||5),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
   }
   if(type==="coding"||type==="code") {
     const title=cleanCell(get("title","questiontitle"));
@@ -2547,7 +2586,7 @@ document.getElementById("questionImportFile")?.addEventListener("change",async e
       for(const sheetName of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{defval:""});for(const row of rows)parsed.push(rowToImportQuestion(Object.fromEntries(Object.entries(row).map(([k,v])=>[k.toLowerCase().replace(/[^a-z0-9]/g,""),v]))));}
     }
     if(!parsed.length)throw new Error("No questions found in this file.");
-    if(importTarget==="special"&&parsed.some(q=>q.type!=="coding"))throw new Error("Special Section accepts coding questions only. Use the Coding Excel Template.");
+    if(importTarget==="special"&&parsed.some(q=>!["coding","sql_query"].includes(q.type)))throw new Error("Special Section accepts CODING or SQL_QUERY rows. Use the Special Section Excel Template.");
     if(importTarget==="learning-concepts"&&parsed.some(q=>q.type!=="concept"))throw new Error("Learning Concepts import accepts CONCEPT rows only. Use the Concept Excel Template.");
     if(importTarget==="learning-mcq"&&parsed.some(q=>q.type!=="mcq"))throw new Error("Learning MCQ import accepts MCQ questions only. Use the MCQ Excel Template.");
     if(importTarget==="learning-coding"&&parsed.some(q=>q.type!=="coding"))throw new Error("Learning Coding import accepts coding questions only. Use the Coding Excel Template.");
@@ -2571,7 +2610,7 @@ document.getElementById("confirmQuestionImportBtn")?.addEventListener("click",as
       const q={...parsedImportQuestions[i]};
       try {
         if(importTarget==="exam") await addQuestion({...q,examId:activeExamForQuestions.id,published:q.published!==false,order:questions.length+imported});
-        else if(importTarget==="special") await createSpecialQuestion({...q,published:q.published!==false,order:specialQuestions.length+imported,company:q.company||"Other"});
+        else if(importTarget==="special") await createSpecialQuestion({...q,published:q.published!==false,order:specialQuestions.length+imported,company:q.company||"Other",subject:q.subject||"Python",language:q.language||"python"});
         else if(importTarget==="learning-concepts") await createConcept({levelId:activeLevel.id,title:q.title,content:q.content,order:Number.isFinite(q.order)?q.order:((levelConcepts?.length||0)+imported)});
         else if(importTarget==="learning-mcq") await createMcqQuestion({levelId:activeLevel.id,questionText:q.questionText,options:q.options,correctOptionIndex:q.correctOptionIndex,marks:q.marks,order:(levelMcqQuestions?.length||0)+imported});
         else if(importTarget==="learning-coding") await createLearningCodingQuestion({levelId:activeLevel.id,language:"python",title:q.title,description:q.description,inputDescription:q.inputDescription,outputDescription:q.outputDescription,constraints:q.constraints||"",marks:q.marks,timeLimit:q.timeLimit||5,order:(levelCodingQuestions?.length||0)+imported,starterCode:q.starterCode,examples:q.examples||[],visibleTestCases:q.visibleTestCases||[],hiddenTestCases:q.hiddenTestCases||[]});
@@ -2597,6 +2636,11 @@ async function renderSpecialQuestionsList() {
   specialQuestions = await listAllSpecialQuestions();
   specialQuestionsLoaded = true;
 
+  const subjectFilterEl = document.getElementById("specialSubjectFilter");
+  if (subjectFilterEl) {
+    subjectFilterEl.value = specialSubjectFilterValue;
+    subjectFilterEl.onchange = () => { specialSubjectFilterValue = subjectFilterEl.value; renderSpecialQuestionsListBody(); };
+  }
   const filterEl = document.getElementById("specialCompanyFilter");
   const previousValue = filterEl.value || "all";
   const companiesPresent = [...new Set(specialQuestions.map((q) => q.company).filter(Boolean))];
@@ -2613,7 +2657,8 @@ async function renderSpecialQuestionsList() {
 
 function renderSpecialQuestionsListBody() {
   const wrap = document.getElementById("specialQuestionsList");
-  const rows = specialCompanyFilterValue === "all" ? specialQuestions : specialQuestions.filter((q) => q.company === specialCompanyFilterValue);
+  const subjectRows = specialSubjectFilterValue === "all" ? specialQuestions : specialQuestions.filter((q) => (q.subject || q.language || "Python").toLowerCase() === specialSubjectFilterValue.toLowerCase());
+  const rows = specialCompanyFilterValue === "all" ? subjectRows : subjectRows.filter((q) => q.company === specialCompanyFilterValue);
 
   if (!rows.length) {
     wrap.innerHTML = `<div class="text-center text-muted py-4">No special coding questions ${specialCompanyFilterValue === "all" ? "added yet" : `for ${escapeHtmlL(specialCompanyFilterValue)}`}.</div>`;
@@ -2632,6 +2677,7 @@ function renderSpecialQuestionsListBody() {
         <div class="question-card p-3">
           <div class="d-flex justify-content-between">
             <div>
+              <span class="badge bg-info text-dark me-2">${escapeHtmlL(q.subject || q.language || "Python")}</span>
               <span class="company-badge ${companyBadgeClass(q.company)} me-2">${escapeHtmlL(q.company || "Other")}</span>
               <strong>${escapeHtmlL(q.title)}</strong>
               <span class="badge ${difficultyBadge} ms-1">${(q.difficulty || "medium").toUpperCase()}</span>
@@ -2678,6 +2724,12 @@ document.getElementById("importSpecialBeginnerBtn").addEventListener("click", ()
 document.getElementById("specialBeginnerSelectAllBtn").addEventListener("click", selectAllSpecialBeginnerTopics);
 document.getElementById("specialBeginnerImportBtn").addEventListener("click", importSelectedSpecialBeginnerTopics);
 
+document.getElementById("spSubjectInput").addEventListener("change", (e) => {
+  const sql = e.target.value === "SQL";
+  document.getElementById("spSqlFields").hidden = !sql;
+  document.getElementById("spStarterLabel").textContent = sql ? "Starter Query (SQL)" : "Starter Code (Python)";
+  document.getElementById("spStarterInput").placeholder = sql ? "SELECT * FROM table_name;" : "def solve():";
+});
 document.getElementById("spCompanySelect").addEventListener("change", (e) => {
   document.getElementById("spCompanyOtherWrap").classList.toggle("d-none", e.target.value !== "Other");
 });
@@ -3004,6 +3056,11 @@ function openSpecialModal(question = null) {
   document.getElementById("specialForm").reset();
   document.getElementById("specialFormError").classList.add("d-none");
 
+  document.getElementById("spSubjectInput").value = question?.subject || question?.language || "Python";
+  document.getElementById("spSchemaSqlInput").value = question?.schemaSql || "";
+  document.getElementById("spExpectedOutputInput").value = question?.expectedOutput || "";
+  document.getElementById("spStarterLabel").textContent = (question?.subject || question?.language || "Python") === "SQL" ? "Starter Query (SQL)" : "Starter Code (Python)";
+  document.getElementById("spSqlFields").hidden = (question?.subject || question?.language || "Python") !== "SQL";
   document.getElementById("spTitleInput").value = question?.title || "";
   document.getElementById("spDescInput").value = question?.description || "";
   document.getElementById("spInputDescInput").value = question?.inputDescription || "";
@@ -3013,7 +3070,7 @@ function openSpecialModal(question = null) {
   document.getElementById("spMarksInput").value = question?.marks || "";
   document.getElementById("spTimeLimitInput").value = question?.timeLimit || 5;
   document.getElementById("spOrderInput").value = question?.order ?? specialQuestions.length;
-  document.getElementById("spStarterInput").value = question?.starterCode || "";
+  document.getElementById("spStarterInput").value = question?.starterCode || question?.starterQuery || "";
 
   const knownCompany = question?.company && COMPANY_OPTIONS.includes(question.company) ? question.company : question?.company ? "Other" : "Google";
   document.getElementById("spCompanySelect").value = knownCompany;
@@ -3052,6 +3109,10 @@ document.getElementById("specialForm").addEventListener("submit", async (e) => {
     outputDescription: document.getElementById("spOutputDescInput").value.trim(),
     constraints: document.getElementById("spConstraintsInput").value.trim(),
     company,
+    subject: document.getElementById("spSubjectInput").value,
+    language: document.getElementById("spSubjectInput").value.toLowerCase(),
+    schemaSql: document.getElementById("spSchemaSqlInput").value,
+    expectedOutput: document.getElementById("spExpectedOutputInput").value,
     difficulty: document.getElementById("spDifficultyInput").value,
     marks: Number(document.getElementById("spMarksInput").value),
     timeLimit: Number(document.getElementById("spTimeLimitInput").value),
@@ -3063,6 +3124,15 @@ document.getElementById("specialForm").addEventListener("submit", async (e) => {
     published: publish
   };
 
+  if (data.subject === "SQL") {
+    data.starterQuery = data.starterCode;
+    if (!data.schemaSql.trim() || !data.expectedOutput.trim()) {
+      errorEl.textContent = "SQL questions require SQLite schema/setup SQL and expected output JSON.";
+      errorEl.classList.remove("d-none"); return;
+    }
+    data.visibleTestCases = [{input:"", expectedOutput:data.expectedOutput}];
+    data.hiddenTestCases = [];
+  }
   if (!data.visibleTestCases.length && !data.hiddenTestCases.length) {
     errorEl.textContent = "Add at least one test case (public or hidden).";
     errorEl.classList.remove("d-none");

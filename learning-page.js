@@ -422,11 +422,11 @@ function renderCodingList(content) {
     return;
   }
   if (!codingQuestions.length) {
-    content.innerHTML = `<div class="text-muted">No coding questions have been added for this level yet.</div>`;
+    content.innerHTML = `<div class="text-muted">No ${String(level.subject||"Python").toLowerCase()==="sql"?"SQL query":"coding"} questions have been added for this level yet.</div>`;
     return;
   }
 
-  content.innerHTML = `<h5 class="mb-3"><i class="bi bi-code-slash me-1"></i>Coding Practice</h5><div id="codingListWrap" class="d-flex flex-column gap-2"></div>`;
+  content.innerHTML = `<h5 class="mb-3"><i class="bi bi-code-slash me-1"></i>${String(level.subject||"Python").toLowerCase()==="sql"?"SQL Query Practice":"Coding Practice"}</h5><div id="codingListWrap" class="d-flex flex-column gap-2"></div>`;
   const wrap = document.getElementById("codingListWrap");
 
   wrap.innerHTML = codingQuestions
@@ -500,8 +500,8 @@ function renderCodingQuestion(content) {
       <div class="col-lg-7">
         <textarea id="learningCodeEditor">${escapeHtml(q.starterCode || "")}</textarea>
         <div class="d-flex align-items-center gap-2 mt-2">
-          <button class="btn btn-outline-secondary btn-sm" id="learningRunBtn"><i class="bi bi-play-fill me-1"></i>Run Code</button>
-          <button class="btn btn-brand btn-sm" id="learningSubmitBtn"><i class="bi bi-cloud-arrow-up me-1"></i>Submit Code</button>
+          <button class="btn btn-outline-secondary btn-sm" id="learningRunBtn"><i class="bi bi-play-fill me-1"></i>${String(q.language||level.subject||"Python").toLowerCase()==="sql"?"Run Query":"Run Code"}</button>
+          <button class="btn btn-brand btn-sm" id="learningSubmitBtn"><i class="bi bi-cloud-arrow-up me-1"></i>${String(q.language||level.subject||"Python").toLowerCase()==="sql"?"Submit Query":"Submit Code"}</button>
           <span class="python-status" id="learningPythonStatus"></span>
         </div>
         <div id="learningTestResults" class="d-flex flex-column gap-2 mt-3"></div>
@@ -516,7 +516,7 @@ function renderCodingQuestion(content) {
   });
 
   cmEditor = CodeMirror.fromTextArea(document.getElementById("learningCodeEditor"), {
-    mode: "python",
+    mode: String(q.language || level.subject || "Python").toLowerCase() === "sql" ? "text/x-sql" : "python",
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,
@@ -527,8 +527,8 @@ function renderCodingQuestion(content) {
   cmEditor.setSize("100%", "300px");
   blockPaste(cmEditor);
 
-  document.getElementById("learningRunBtn").addEventListener("click", () => runVisible(q));
-  document.getElementById("learningSubmitBtn").addEventListener("click", () => submitPractice(q));
+  document.getElementById("learningRunBtn").addEventListener("click", () => String(q.language || level.subject || "Python").toLowerCase() === "sql" ? runSqlVisible(q) : runVisible(q));
+  document.getElementById("learningSubmitBtn").addEventListener("click", () => String(q.language || level.subject || "Python").toLowerCase() === "sql" ? submitSqlPractice(q) : submitPractice(q));
   renderLearningHistory(q.id);
 }
 
@@ -564,6 +564,65 @@ function showPasteBlockedToast() {
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.add("paste-blocked-toast-out"), 1800);
   setTimeout(() => toast.remove(), 2200);
+}
+
+
+let learningSqlEnginePromise = null;
+async function learningSqlEngine() {
+  if (!learningSqlEnginePromise) learningSqlEnginePromise = initSqlJs({locateFile:file=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`});
+  return learningSqlEnginePromise;
+}
+function canonicalRows(rows) {
+  return rows.map(row=>Object.fromEntries(Object.keys(row).sort().map(k=>[k,row[k]]))).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+}
+async function gradeSqlQuery(q, queryText, tests) {
+  const SQL=await learningSqlEngine(), results=[];
+  for(const test of tests){
+    const started=performance.now();let database=null;
+    try{
+      database=new SQL.Database();database.exec(q.schemaSql||"");
+      const queryResults=database.exec(queryText);
+      const rows=queryResults.length?queryResults.flatMap(t=>t.values.map(values=>Object.fromEntries(t.columns.map((c,i)=>[c,values[i]])))):[];
+      const expected=JSON.parse(test.expectedOutput||q.expectedOutput||"[]");
+      results.push({passed:JSON.stringify(canonicalRows(rows))===JSON.stringify(canonicalRows(expected)),input:"",expectedOutput:JSON.stringify(expected),actualOutput:JSON.stringify(rows),executionTimeMs:Math.round(performance.now()-started),errorMessage:""});
+    }catch(error){results.push({passed:false,input:"",expectedOutput:test.expectedOutput||q.expectedOutput||"[]",actualOutput:"",executionTimeMs:Math.round(performance.now()-started),errorMessage:error.message});}
+    finally{database?.close();}
+  }
+  return results;
+}
+function showSqlPracticeResults(results,publicCount,statusEl,resultsEl){
+  const passed=results.filter(r=>r.passed).length;
+  statusEl.textContent=`${passed} / ${results.length} test cases passed`;
+  resultsEl.innerHTML=results.map((r,i)=>`<div class="testcase-result ${r.passed?"pass":"fail"}"><strong>${i<publicCount?"Public":"Hidden"} test ${i<publicCount?i+1:i-publicCount+1}: ${r.passed?"PASSED":"FAILED"}</strong><div><strong>Expected:</strong><pre class="testcase-value">${escapeHtml(r.expectedOutput)}</pre></div><div><strong>Your output:</strong><pre class="testcase-value">${escapeHtml(r.actualOutput)}</pre></div>${r.errorMessage?`<div>${escapeHtml(r.errorMessage)}</div>`:""}</div>`).join("");
+  return passed;
+}
+async function runSqlVisible(q){
+  const statusEl=document.getElementById("learningPythonStatus"),resultsEl=document.getElementById("learningTestResults");
+  statusEl.textContent="Running SQLite query…";resultsEl.innerHTML="";
+  try{const tests=q.visibleTestCases?.length?q.visibleTestCases:[{expectedOutput:q.expectedOutput||"[]"}];const results=await gradeSqlQuery(q,cmEditor.getValue(),tests);showSqlPracticeResults(results,results.length,statusEl,resultsEl);}
+  catch(error){statusEl.textContent=`SQL execution failed: ${error.message}`;}
+}
+async function submitSqlPractice(q){
+  const statusEl=document.getElementById("learningPythonStatus"),resultsEl=document.getElementById("learningTestResults"),submitBtn=document.getElementById("learningSubmitBtn");
+  if(submitBtn.disabled)return;submitBtn.disabled=true;resultsEl.innerHTML="";
+  const sourceCode=cmEditor.getValue(),allTests=[...(q.visibleTestCases||[]),...(q.hiddenTestCases||[])];
+  try{
+    const submissionId=await createLearningCodeSubmission({studentId:currentUser.uid,levelId,questionId:q.id,language:"sql",sourceCode,executionStatus:"processing",testCasesPassed:0,totalTestCases:allTests.length,marksObtained:0,executionTimeMs:0,errorMessage:null});
+    const tests=allTests.length?allTests:[{expectedOutput:q.expectedOutput||"[]"}];
+    const results=await gradeSqlQuery(q,sourceCode,tests),passed=results.filter(r=>r.passed).length,marks=computeCodingMarks(q.marks||10,results);
+    await updateLearningCodeSubmission(submissionId,{executionStatus:results.some(r=>r.errorMessage)?"error":"completed",testCasesPassed:passed,totalTestCases:tests.length,marksObtained:marks,executionTimeMs:results.reduce((n,r)=>n+r.executionTimeMs,0),errorMessage:results.find(r=>r.errorMessage)?.errorMessage||null});
+    let extra="";
+    if(passed===tests.length&&tests.length){
+      markCodingQuestionCompleted("learning",q.id);
+      const [pointsResult,streakResult]=await Promise.allSettled([awardPointsForCompletedQuestion(currentUser.uid,q.id),recordLearningProblemSolved(currentUser.uid,q.id)]);
+      if(pointsResult.status==="fulfilled"&&pointsResult.value.awarded)showPointsToast(pointsResult.value.points);
+      if(streakResult.status==="rejected")extra=" · Streak update failed";
+    }
+    statusEl.textContent=`Submitted: ${passed}/${tests.length} test cases · ${marks}/${q.marks||10} marks${extra}`;
+    showSqlPracticeResults(results,(q.visibleTestCases||[]).length,statusEl,resultsEl);
+    await renderLearningHistory(q.id);
+  }catch(error){statusEl.textContent=`Could not submit SQL query: ${error.message}`;}
+  finally{submitBtn.disabled=false;}
 }
 
 async function runVisible(q) {

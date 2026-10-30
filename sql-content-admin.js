@@ -97,7 +97,7 @@ function parseWorkbook(wb){
       if(language==="sql"){
         item.prompt=item.description; item.solution=String(val(r,"solution")||""); item.schemaSql=String(val(r,"schemaSql")||"");
         item.tables=[]; try{item.visibleTestCases=JSON.parse(val(r,"visibleTestCasesJson")||"[]");item.hiddenTestCases=JSON.parse(val(r,"hiddenTestCasesJson")||"[]");}catch{throw new Error(`PRACTICE_QUESTIONS row ${i+2}: test case JSON is invalid.`);}
-        pushSet("sqlChallenges",`sql-${slug(val(r,"id")||`${moduleId}-practice-${i+1}`)}`,{...item,topic:String(val(r,"topicId")||""),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+        pushSet("learningCodingQuestions",`sql-${slug(val(r,"id")||`${moduleId}-practice-${i+1}`)}`,{...item,subject:"SQL",language:"sql",topic:String(val(r,"topicId")||""),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
       } else {
         let examples=[];let visibleTestCases=[];let hiddenTestCases=[];
         try{examples=JSON.parse(val(r,"examplesJson")||"[]");visibleTestCases=JSON.parse(val(r,"visibleTestCasesJson")||"[]");hiddenTestCases=JSON.parse(val(r,"hiddenTestCasesJson")||"[]");}catch{throw new Error(`PRACTICE_QUESTIONS row ${i+2}: examples/test case JSON is invalid.`);}
