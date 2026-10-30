@@ -47,28 +47,21 @@
 This project is a static frontend. Admin-only Firestore writes are protected by rules, but the browser itself is not a trusted server. For stronger issuance guarantees and immutable audit trails, move certificate ID creation, eligibility validation, and revocation synchronization into Firebase Cloud Functions with App Check. The current story form uses admin-entered verified results; automatic baseline/final extraction requires mapping the existing exam result schema and adding a dedicated baseline assessment workflow.
 
 
-## Automatic student certificate issuance (updated)
+## Automatic certificates on Firebase Spark (browser-generated mode)
 
-Student flow: **My Certificates → choose Python or SQL → Check eligibility & download**. The trusted callable Cloud Function checks the student's active subscription and course exam history. Eligibility is: at least **5 completed exams** tagged to the selected course and an average of at least **70%**. Achievement levels: Bronze 70–79%, Silver 80–89%, Gold 90–94%, Platinum 95–100%. A successful request creates the private certificate, public verification projection, and request-history record atomically; the browser then downloads the PDF. Duplicate requests return the existing certificate instead of issuing another.
+Students can generate a certificate PDF without Firebase Cloud Functions or a Blaze upgrade. The browser checks the student's active subscription document, loads their own submitted exam records and matching exam course tags, then requires at least five distinct completed exams with a 70% average. Achievement levels are Bronze (70–79%), Silver (80–89%), Gold (90–94%) and Platinum (95–100%). The PDF downloads immediately.
 
-### Required setup for automatic issuance
+### Important limitations
 
-1. In Admin Dashboard → Exams, edit every existing exam and set **Certificate course mapping** to Python or SQL. New exams default to Python; choose SQL when appropriate. Exams without a correct `course`/`subject` value are not counted.
-2. Cloud Functions require the Firebase project to use the **Blaze (pay-as-you-go) plan**. Review Firebase pricing and configure billing before deploying.
-3. From the project root run `cd functions && npm install && cd ..`, then `firebase deploy --only functions`. Deploy the updated Firestore rules with `firebase deploy --only firestore:rules`. Deploy Hosting separately when ready.
-4. Test with a subscribed student who has 5 completed exams in one course and a 70%+ average, then test an unsubscribed student and a student below the threshold.
+- This mode does not use Cloud Functions and does not require a Blaze upgrade.
+- Newly generated certificates are stored only in the student's current browser local storage. They are not synchronized to another device and may be lost if browser data is cleared.
+- The PDF is explicitly marked as a browser-generated, non-publicly-verified copy. It has no public verification QR. Existing certificates previously issued through the trusted admin/Cloud Function path remain in the official wallet and verification registry.
+- Because eligibility is checked in the browser, a technically knowledgeable user could manipulate client-side data. Do not treat Spark-mode PDFs as tamper-proof credentials. Strong, publicly verifiable certificates require a trusted backend such as Cloud Functions or another server.
+- Each exam must have the correct Python or SQL course mapping in Admin Dashboard → Exams. Only distinct exams with submitted or auto-submitted results and numeric percentages are counted.
 
-The eligibility check and certificate creation run in a callable Cloud Function using the Admin SDK; students cannot directly write certificate records or certificate request records under the updated rules. The function checks for an existing certificate before issuance and uses an issuance lock to prevent duplicate concurrent requests. App Check is not enforced in this initial function configuration; enable and enforce it after registering the web app and testing valid clients. Existing old pending admin-review requests are legacy records and are not auto-approved.
+### Deployment on GitHub/Vercel
 
-
-### CORS troubleshooting (Vercel)
-
-The callable function explicitly enables CORS for the deployed web client. If the browser still reports a failed OPTIONS preflight, verify that the latest `requestCourseCertificate` callable has actually deployed to `us-central1` in the same Firebase project as the frontend. From the project root run:
-
-```bash
-firebase use
-firebase deploy --only functions:requestCourseCertificate
-firebase functions:list
-```
-
-Confirm the listed function is `requestCourseCertificate`, region `us-central1`, and generation 2. Then hard-refresh the Vercel site. Do not replace the callable with a plain `onRequest` handler unless the frontend is also changed from `httpsCallable`. The callable SDK sends the required authentication token and callable request envelope. If preflight still fails, inspect the function deployment logs and the HTTP status for the OPTIONS request; a missing function, wrong region/project, or failed deployment can look like a CORS problem in the browser.
+1. Upload the updated website files to the existing GitHub repository; Vercel will redeploy the static site.
+2. No Firebase Functions deployment is needed. No Firestore rules change is required for browser-generated certificates.
+3. Keep the existing Firestore rules and official verification registry unchanged.
+4. Test with one active subscriber who has five completed Python exams averaging at least 70%, then test SQL and ineligible accounts.
