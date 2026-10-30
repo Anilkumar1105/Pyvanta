@@ -1,7 +1,8 @@
 import { requireRole, wireLogoutButtons } from "./auth.js";
 import { db } from "./firebase-config.js";
+import { invalidateCollection } from "./firestore-cache.js";
 import { getActiveSubscription, subscriptionCanAccessSql } from "./subscription-access.js";
-import { collection, getDocs, query, where, orderBy, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy, addDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 wireLogoutButtons();
 const root=document.getElementById("sqlRoot");
@@ -38,17 +39,88 @@ function renderExamHome(panel){
  panel.innerHTML=`<div class="sql-card"><h3>SQL Assessment Centre</h3><p class="text-secondary">Choose a timed assessment. Questions are selected from the SQL MCQ and query banks you publish through Excel.</p><div class="row g-3"><div class="col-md-4"><div class="border rounded-3 p-3 h-100"><h5>MCQ Exam</h5><p class="small text-secondary">10 multiple-choice questions · 15 minutes</p><button class="btn btn-brand w-100" data-exam="mcq">Start MCQ Exam</button></div></div><div class="col-md-4"><div class="border rounded-3 p-3 h-100"><h5>Query Exam</h5><p class="small text-secondary">3 SQL query challenges · 20 minutes</p><button class="btn btn-brand w-100" data-exam="query">Start Query Exam</button></div></div><div class="col-md-4"><div class="border rounded-3 p-3 h-100"><h5>Mixed Exam</h5><p class="small text-secondary">5 MCQs + 2 SQL queries · 25 minutes</p><button class="btn btn-brand w-100" data-exam="mixed">Start Mixed Exam</button></div></div></div><div id="sqlExamArea" class="mt-4"></div></div>`;
  panel.querySelectorAll("[data-exam]").forEach(b=>b.addEventListener("click",()=>startSqlExam(b.dataset.exam,panel.querySelector("#sqlExamArea"))));
 }
-function startSqlExam(type,area){
+async function startSqlExam(type,area){
  if(examTimer)clearInterval(examTimer);const mcqCount=type==="mcq"?10:type==="mixed"?5:0,queryCount=type==="query"?3:type==="mixed"?2:0;
  const pickedMcqs=[...mcqs].sort(()=>Math.random()-.5).slice(0,mcqCount),pickedQueries=[...challenges].sort(()=>Math.random()-.5).slice(0,queryCount);
+ if(examState)return;
  if(pickedMcqs.length<mcqCount||pickedQueries.length<queryCount){area.innerHTML=`<div class="alert alert-warning">Not enough published questions yet. Import at least ${mcqCount} MCQs and ${queryCount} query challenges for this exam.</div>`;return;}
- examState={type,mcqs:pickedMcqs,queries:pickedQueries,answers:{},startedAt:Date.now(),duration:(type==="mcq"?15:type==="query"?20:25)*60};
+ examState={starting:true};
+ const examId = `sql_practice_${type}`;
+ let sharedSubmissionId = null;
+ try {
+   const initialSubmission = {
+     studentId: currentUid, examId, subject: "SQL", course: "SQL",
+     examTitle: `SQL Practice · ${type.toUpperCase()}`,
+     status: "in-progress", startedAt: new Date().toISOString(),
+     examType: type === "query" ? "coding" : type, sqlExamType: type,
+     violations: 0, answers: {}, createdAt: new Date().toISOString()
+   };
+   const submissionRef = await addDoc(collection(db,"submissions"), initialSubmission);
+   sharedSubmissionId = submissionRef.id;
+   invalidateCollection("submissions");
+ } catch (error) {
+   console.error("Could not start shared SQL exam submission", error);
+   examState=null;
+   area.innerHTML = `<div class="alert alert-danger">Could not start this exam or save its attempt. Please refresh and try again.</div>`;
+   return;
+ }
+ examState={type,mcqs:pickedMcqs,queries:pickedQueries,answers:{},startedAt:Date.now(),duration:(type==="mcq"?15:type==="query"?20:25)*60,submissionId:sharedSubmissionId,examId,initialSubmission};
  area.innerHTML=`<div class="border rounded-3 p-3"><div class="d-flex justify-content-between"><h4>${type.toUpperCase()} SQL Exam</h4><strong id="sqlExamClock" class="text-info">${Math.floor(examState.duration/60)}:00</strong></div><div id="sqlExamQuestions"></div><button id="finishSqlExam" class="btn btn-success mt-3">Submit Exam</button><div id="sqlExamResult" class="mt-3"></div></div>`;
  const qwrap=area.querySelector("#sqlExamQuestions");let html="";pickedMcqs.forEach((q,i)=>{html+=`<section class="border-bottom py-3"><strong>${i+1}. ${esc(q.questionText)}</strong>${(q.options||[]).map((o,j)=>`<label class="d-block mt-2"><input type="radio" name="sqlExamMcq${i}" value="${j}"> ${esc(o)}</label>`).join("")}</section>`;});pickedQueries.forEach((q,i)=>{html+=`<section class="border-bottom py-3"><strong>${pickedMcqs.length+i+1}. ${esc(q.title)}</strong><p class="small text-secondary">${esc(q.prompt)}</p><textarea class="form-control" rows="4" id="sqlExamQuery${i}" placeholder="Write your SELECT query"></textarea></section>`;});qwrap.innerHTML=html;
  const clock=area.querySelector("#sqlExamClock");examTimer=setInterval(()=>{const left=Math.max(0,examState.duration-Math.floor((Date.now()-examState.startedAt)/1000));clock.textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;if(left===0)finishSqlExam(area);},1000);
  area.querySelector("#finishSqlExam").addEventListener("click",()=>finishSqlExam(area));
 }
-async function finishSqlExam(area){if(!examState)return;if(examTimer)clearInterval(examTimer);examTimer=null;let correct=0,total=examState.mcqs.length+examState.queries.length;examState.mcqs.forEach((q,i)=>{const chosen=area.querySelector(`input[name="sqlExamMcq${i}"]:checked`);if(chosen&&Number(chosen.value)===Number(q.correctOptionIndex))correct++;});for(let i=0;i<examState.queries.length;i++){const answer=area.querySelector(`#sqlExamQuery${i}`)?.value.trim();if(!answer)continue;try{await initEngine();if(!/^\s*(SELECT|WITH)\b/i.test(answer)||/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|PRAGMA|ATTACH)\b/i.test(answer))continue;const actual=dbInstance.exec(answer),expected=dbInstance.exec(examState.queries[i].solution);const stable=x=>JSON.stringify((x||[]).map(t=>({columns:t.columns,values:t.values})));if(stable(actual)===stable(expected))correct++;}catch{}}
- const pct=total?Math.round(correct/total*100):0;try{if(currentUid)await addDoc(collection(db,"sqlExamAttempts"),{uid:currentUid,examType:examState.type,correct,total,percentage:pct,result:pct>=40?"pass":"fail",submittedAt:serverTimestamp()});}catch(e){console.warn("Could not save SQL exam attempt",e);}area.querySelector("#sqlExamResult").innerHTML=`<div class="alert ${pct>=40?"alert-success":"alert-warning"}"><h5>Exam submitted</h5><div class="display-6">${correct}/${total}</div><strong>${pct}% · ${pct>=40?"Passed":"Keep practising"}</strong><p class="mb-0 small">Your practice result has been recorded when online. This self-practice exam is not a substitute for a scheduled, server-graded institutional exam.</p></div>`;examState=null;}
+async function finishSqlExam(area){
+ if(!examState || examState.submitting)return;
+ examState.submitting=true;
+ if(examTimer)clearInterval(examTimer);examTimer=null;
+ const state=examState;
+ let mcqCorrect=0,queryCorrect=0;
+ const sqlReview=[],answers={};
+ state.mcqs.forEach((q,i)=>{
+   const chosen=area.querySelector(`input[name="sqlExamMcq${i}"]:checked`);
+   const selected=chosen?Number(chosen.value):null;
+   answers[`mcq_${i}`]=selected;
+   const passed=selected!==null && selected===Number(q.correctOptionIndex);
+   if(passed)mcqCorrect++;
+   sqlReview.push({kind:"mcq",title:q.questionText,options:q.options||[],selectedIndex:selected,correctOptionIndex:Number(q.correctOptionIndex),explanation:q.explanation||"",passed});
+ });
+ for(let i=0;i<state.queries.length;i++){
+   const q=state.queries[i],answer=area.querySelector(`#sqlExamQuery${i}`)?.value.trim()||"";
+   answers[`query_${i}`]=answer;
+   let passed=false;
+   if(answer){
+     try{
+       await initEngine();
+       if(/^\s*(SELECT|WITH)\b/i.test(answer) && !/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|PRAGMA|ATTACH|DETACH)\b/i.test(answer)){
+         const actual=dbInstance.exec(answer),expected=dbInstance.exec(q.solution);
+         const stable=x=>JSON.stringify((x||[]).map(t=>({columns:t.columns,values:t.values})));
+         passed=stable(actual)===stable(expected);
+       }
+     }catch{}
+   }
+   if(passed)queryCorrect++;
+   sqlReview.push({kind:"query",title:q.title,prompt:q.prompt,query:answer,passed,solution:q.solution});
+ }
+ const correct=mcqCorrect+queryCorrect,total=state.mcqs.length+state.queries.length;
+ const pct=total?Math.round(correct/total*100):0;
+ const resultPayload={
+   answers,sqlReview,score:correct,totalMarks:total,percentage:pct,
+   mcqScore:mcqCorrect,codingScore:queryCorrect,
+   status:"submitted",submittedAt:new Date().toISOString(),
+   examType:state.type==="query"?"coding":state.type,sqlExamType:state.type,
+   subject:"SQL",course:"SQL",examTitle:`SQL Practice · ${state.type.toUpperCase()}`,
+   violations:0
+ };
+ try{
+   await updateDoc(doc(db,"submissions",state.submissionId),resultPayload);
+   invalidateCollection("submissions");
+   area.querySelector("#sqlExamResult").innerHTML=`<div class="alert ${pct>=40?"alert-success":"alert-warning"}"><h5>Exam submitted</h5><div class="display-6">${correct}/${total}</div><strong>${pct}% · ${pct>=40?"Passed":"Keep practising"}</strong><p class="mb-0 small">Your result is now available in My Exam History and the Admin Results dashboard.</p></div>`;
+ }catch(e){
+   console.error("Could not finalize SQL exam result",e);
+   area.querySelector("#sqlExamResult").innerHTML=`<div class="alert alert-danger">Your answers were graded (${pct}%), but the result could not be saved. Please contact your administrator before closing this page.</div>`;
+ }
+ examState=null;
+}
 async function loadRemote(){try{const [t,m,q,v]=await Promise.all([getDocs(query(collection(db,"sqlContent"),where("published","==",true))),getDocs(query(collection(db,"sqlMcqs"),where("published","==",true))),getDocs(query(collection(db,"sqlChallenges"),where("published","==",true))),getDocs(query(collection(db,"sqlVisualizations"),where("published","==",true)))]);if(!t.empty)topics=t.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));if(!m.empty)mcqs=m.docs.map(d=>({id:d.id,...d.data()}));if(!q.empty)challenges=q.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));if(!v.empty)visualizations=v.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order||0)-(b.order||0));}catch(e){console.warn("SQL content could not be loaded; built-in lessons remain available.",e);}}
 requireRole("student",async user=>{try{currentUid=user.uid;const sub=await getActiveSubscription(user.uid);if(!subscriptionCanAccessSql(sub)){showPaywall();return;}await loadRemote();shell();}catch(e){console.error(e);root.innerHTML=`<div class="alert alert-danger">Could not load SQL Lab. Please refresh or contact support.</div>`;}});

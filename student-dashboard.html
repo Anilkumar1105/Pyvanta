@@ -186,10 +186,22 @@ href="./favicon.svg">
         <div>
           <h5 class="mb-1">Code Visualizations Lab</h5>
           <p class="text-muted mb-0">Explore sorting, searching, Two Pointers, stacks and recursion with step-by-step animations.</p>
-          <small class="text-success">Available to all students</small>
+          <small class="text-success">Included with the 360-day Premium plan</small>
         </div>
       </div>
       <a class="btn btn-brand flex-shrink-0" href="code-visualizations.html"><i class="bi bi-play-circle me-1"></i>Open Visualizations</a>
+    </div>
+  </div>
+
+  <div class="card border-primary mb-4" id="studentSqlLearningCard">
+    <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="rounded-3 bg-primary-subtle text-primary p-3"><i class="bi bi-database-fill-gear fs-3"></i></div>
+        <div><h5 class="mb-1">SQL & SQLite Learning Lab <span class="badge text-bg-warning">Premium</span></h5>
+          <p class="text-muted mb-0">Learn SQL concepts, practise queries, take MCQ and mixed exams, and explore query visualizations.</p>
+          <small class="text-success">Included with the 360-day Premium plan</small></div>
+      </div>
+      <a class="btn btn-brand flex-shrink-0" href="sql-learning.html"><i class="bi bi-database me-1"></i>Open SQL Lab</a>
     </div>
   </div>
 
@@ -210,7 +222,7 @@ href="./favicon.svg">
   </div></section>
 
   <div class="card">
-    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span class="fw-semibold"><i class="bi bi-clock-history me-1"></i>My Exam History</span><div class="d-flex flex-wrap gap-2"><select id="studentHistoryTypeFilter" class="form-select form-select-sm w-auto" aria-label="Filter exam type"><option value="all">All types</option><option value="mcq">MCQ</option><option value="coding">Coding</option><option value="mixed">Mixed</option></select><select id="studentHistoryResultFilter" class="form-select form-select-sm w-auto" aria-label="Filter exam result"><option value="all">All results</option><option value="pass">Passed</option><option value="fail">Failed</option><option value="pending">Pending</option></select></div></div>
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><span class="fw-semibold"><i class="bi bi-clock-history me-1"></i>My Exam History</span><div class="d-flex flex-wrap gap-2"><select id="studentHistoryTypeFilter" class="form-select form-select-sm w-auto" aria-label="Filter exam type"><option value="all">All types</option><option value="mcq">MCQ</option><option value="coding">Coding</option><option value="query">SQL Query</option><option value="mixed">Mixed</option></select><select id="studentHistoryResultFilter" class="form-select form-select-sm w-auto" aria-label="Filter exam result"><option value="all">All results</option><option value="pass">Passed</option><option value="fail">Failed</option><option value="pending">Pending</option></select></div></div>
     <div class="table-responsive">
       <table class="table table-hover mb-0 align-middle">
         <thead>
@@ -608,7 +620,7 @@ href="./favicon.svg">
       const result = resultFilter?.value || "all";
       const rows = studentHistoryRows.filter((s) => {
         const exam = examById[s.examId] || {};
-        const examType = String(exam.examType || "mcq").toLowerCase();
+        const examType = String(exam.sqlExamType || exam.examType || "mcq").toLowerCase();
         const outcome = s.status === "absent" ? "fail" : exam.showResult === false || s.percentage == null ? "pending" : (isPass(s.percentage) ? "pass" : "fail");
         return (type === "all" || examType === type) && (result === "all" || outcome === result);
       }).sort((a, b) => new Date(b.submittedAt || b.startedAt || 0) - new Date(a.submittedAt || a.startedAt || 0));
@@ -643,20 +655,20 @@ href="./favicon.svg">
         return `
         <tr>
           <td>${exam.title || "Deleted exam"}</td>
-          <td><span class="badge exam-type-badge ${exam.examType === "coding" ? "coding" : "mcq"}">${(exam.examType || "mcq").toUpperCase()}</span></td>
+          <td><span class="badge exam-type-badge ${exam.examType === "coding" ? "coding" : "mcq"}">${String(exam.sqlExamType || exam.examType || "mcq").toUpperCase()}</span></td>
           <td>${hidden ? "-" : s.score ?? "-"}</td>
           <td>${hidden ? "-" : s.percentage != null ? s.percentage + "%" : "-"}</td>
           <td>${resultBadge}</td>
           <td>${s.violations ?? 0}</td>
           <td>${s.submittedAt ? new Date(s.submittedAt).toLocaleString() : "-"}</td>
-          <td class="text-end">${hidden || s.status === "absent" ? '<span class="text-muted small">No review</span>' : `<button class="btn btn-sm btn-outline-primary" data-view-result="${s.examId}"><i class="bi bi-eye me-1"></i>View details</button>`}</td>
+          <td class="text-end">${hidden || s.status === "absent" ? '<span class="text-muted small">No review</span>' : `<button class="btn btn-sm btn-outline-primary" data-view-result="${s.id}"><i class="bi bi-eye me-1"></i>View details</button>`}</td>
         </tr>`;
       })
       .join("");
 
     tbody.querySelectorAll("[data-view-result]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const sub = rows.find((r) => r.examId === btn.dataset.viewResult);
+        const sub = rows.find((r) => r.id === btn.dataset.viewResult);
         openResultModal(sub);
       });
     });
@@ -669,12 +681,12 @@ href="./favicon.svg">
     const diff = pct != null ? Math.round((pct - PASS_MARK) * 10) / 10 : null;
     const diffLabel = diff == null ? "Result is being prepared" : diff >= 0 ? `${diff}% above pass mark` : `${Math.abs(diff)}% below pass mark`;
     const barPct = pct != null ? Math.min(Math.max(pct, 0), 100) : 0;
-    const type = String(exam.examType || "mcq").toLowerCase();
-    const typeLabel = type === "mixed" ? "Mixed exam" : type === "coding" ? "Coding exam" : "MCQ exam";
+    const type = String(exam.sqlExamType || exam.examType || "mcq").toLowerCase();
+    const typeLabel = exam.isSqlPractice ? `SQL ${type.toUpperCase()} exam` : type === "mixed" ? "Mixed exam" : type === "coding" ? "Coding exam" : "MCQ exam";
     document.getElementById("viewResultTitle").textContent = exam.title || "Exam result";
     document.getElementById("viewResultBody").innerHTML = `
       <div class="pv-result-summary text-start">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><span class="badge ${type === "mixed" ? "bg-primary" : type === "coding" ? "bg-info text-dark" : "bg-secondary"}">${typeLabel}</span><span class="badge ${passed ? "bg-success" : pct == null ? "bg-secondary" : "bg-danger"}">${pct == null ? "PENDING" : passed ? "🎉 PASS" : "💪 KEEP PRACTISING · FAIL"}</span></div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><span class="badge ${type === "mixed" ? "bg-primary" : (type === "coding" || type === "query") ? "bg-info text-dark" : "bg-secondary"}">${typeLabel}</span><span class="badge ${passed ? "bg-success" : pct == null ? "bg-secondary" : "bg-danger"}">${pct == null ? "PENDING" : passed ? "🎉 PASS" : "💪 KEEP PRACTISING · FAIL"}</span></div>
         <div class="d-flex align-items-end gap-2 mb-1"><div class="display-5 fw-bold">${sub.score ?? "-"}</div><div class="text-muted pb-2">/ ${sub.totalMarks ?? exam.totalMarks ?? "-"} marks</div><div class="ms-auto text-end"><div class="h3 fw-bold mb-0">${pct == null ? "-" : `${pct}%`}</div><small class="text-muted">Your score</small></div></div>
         <div class="progress result-progress mb-2"><div class="progress-bar ${passed ? "bg-success" : "bg-danger"}" style="width:${barPct}%"></div></div>
         <div class="small ${passed ? "text-success" : pct == null ? "text-muted" : "text-danger"} fw-semibold">${diffLabel} · Pass mark ${PASS_MARK}%</div>
@@ -687,6 +699,11 @@ href="./favicon.svg">
   async function renderUnifiedExamReview(sub, exam) {
     const wrap = document.getElementById("examReviewDetails");
     if (!wrap) return;
+    if (exam.isSqlPractice || sub.subject === "SQL") {
+      const items = Array.isArray(sub.sqlReview) ? sub.sqlReview : [];
+      wrap.innerHTML = items.length ? `<section><h6 class="fw-bold mb-3"><i class="bi bi-database me-2 text-info"></i>SQL answer review</h6>${items.map((item,i)=>item.kind==="mcq" ? `<div class="pv-review-item ${item.passed?'is-correct':'is-wrong'} mb-2"><strong>${i+1}. ${escapeHtmlDash(item.title||"SQL MCQ")}</strong><span class="badge ${item.passed?'bg-success':'bg-danger'} ms-2">${item.passed?'Correct':'Incorrect'}</span><div class="small mt-2">${(item.options||[]).map((option,oi)=>`<div class="${oi===item.correctOptionIndex?'text-success fw-semibold':oi===item.selectedIndex?'text-danger':''}">${escapeHtmlDash(option)}${oi===item.correctOptionIndex?' · Correct answer':oi===item.selectedIndex?' · Your answer':''}</div>`).join('')}</div>${item.explanation?`<p class="small text-muted mt-2 mb-0">${escapeHtmlDash(item.explanation)}</p>`:''}</div>` : `<div class="pv-review-item mb-2"><div class="d-flex justify-content-between gap-2"><strong>${i+1}. ${escapeHtmlDash(item.title||"SQL Query")}</strong><span class="badge ${item.passed?'bg-success':'bg-danger'}">${item.passed?'Passed':'Not passed'}</span></div><p class="small text-muted">${escapeHtmlDash(item.prompt||"")}</p><div class="small fw-semibold">Your query</div><pre class="pv-code-review">${escapeHtmlDash(item.query||"(No query submitted)")}</pre>${item.passed?'':`<details><summary class="small text-info">View expected solution</summary><pre class="pv-code-review mt-2">${escapeHtmlDash(item.solution||"")}</pre></details>`}</div>`).join('')}</section>` : '<div class="small text-muted">No detailed SQL review was saved for this attempt.</div>';
+      return;
+    }
     try {
       const [questions, codeSubs] = await Promise.all([
         getQuestionsForExam(sub.examId).catch(() => []),

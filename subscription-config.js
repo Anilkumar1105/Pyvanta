@@ -15,8 +15,8 @@ export const PYVANTA_PLANS = [
   },
   {
     id: "premium", name: "Premium", durationDays: 360, durationLabel: "12 months · 360 days", price: 499,
-    label: "Best Value", specialSection: "included", allSpecialSections: true, codeVisualizations: true, sqliteSessions: false, sqliteSessionsComingSoon: true,
-    features: ["Everything in Pro", "Access to all special sections", "Code Visualizations Lab", "SQLite learning sessions coming soon (within 1–2 months)"]
+    label: "Best Value", specialSection: "included", allSpecialSections: true, codeVisualizations: true, sqliteSessions: true, sqlLearning: true, sqlExams: true, sqlSpecialSection: true, sqlVisualizations: true,
+    features: ["Everything in Pro", "Access to all special sections", "Code Visualizations Lab", "Complete SQL & SQLite learning path", "SQL MCQ, query and mixed exams", "SQL Special Challenges and query visualizations"]
   }
 ];
 

@@ -625,7 +625,7 @@ function applyFiltersAndRenderResults() {
   });
 
   document.querySelectorAll("[data-view-result-detail]").forEach((btn) => {
-    btn.addEventListener("click", () => openAdminExamResultModal(btn.dataset.viewResultDetail, btn.dataset.examId));
+    btn.addEventListener("click", () => openAdminExamResultModal(btn.dataset.viewResultDetail, btn.dataset.examId, btn.dataset.submissionId));
   });
 
   const reportTitle = buildReportTitle(filters, exams);
@@ -1701,15 +1701,21 @@ document.getElementById("testRunQuestionBtn").addEventListener("click", async ()
 /* ============================================================
    ADMIN: VIEW A STUDENT'S CODE SUBMISSION HISTORY (per exam)
    ============================================================ */
-async function openAdminExamResultModal(studentId, examIdForCode) {
+async function openAdminExamResultModal(studentId, examIdForCode, submissionId = null) {
   const body = document.getElementById("codeSubmissionsBody");
   const modalEl = document.getElementById("codeSubmissionsModal");
   const student = students.find((s) => s.uid === studentId);
   const exam = exams.find((e) => e.id === examIdForCode);
-  const submission = submissions.find((s) => s.studentId === studentId && s.examId === examIdForCode);
+  const submission = submissions.find((s) => submissionId ? s.id === submissionId : s.studentId === studentId && s.examId === examIdForCode);
   modalEl.querySelector(".modal-title").textContent = "Complete Exam Result";
   body.innerHTML = `<div class="text-muted small">Loading result details…</div>`;
   bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  if (exam?.isSqlPractice || submission?.subject === "SQL") {
+    const items = Array.isArray(submission?.sqlReview) ? submission.sqlReview : [];
+    const studentName = escapeHtmlL(student?.name || "Student");
+    body.innerHTML = `<div class="pv-result-summary mb-4"><div class="fw-bold">${studentName}</div><div class="small text-muted">${escapeHtmlL(student?.rollNumber || "")} · SQL ${escapeHtmlL(exam?.sqlExamType || "PRACTICE").toUpperCase()}</div><div class="display-6 mt-2">${submission?.score ?? "—"} / ${submission?.totalMarks ?? exam?.totalMarks ?? "—"}</div><strong>${submission?.percentage ?? 0}% · ${submission?.percentage >= 40 ? "PASS" : "FAIL"}</strong><div class="small text-muted mt-2">${submission?.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "Not submitted"}</div></div>${items.map((item,i)=>item.kind==="mcq" ? `<div class="pv-review-item mb-2"><strong>${i+1}. ${escapeHtmlL(item.title||"SQL MCQ")}</strong><span class="badge ${item.passed?'bg-success':'bg-danger'} ms-2">${item.passed?'Correct':'Incorrect'}</span><div class="small mt-2">${(item.options||[]).map((option,oi)=>`<div class="${oi===item.correctOptionIndex?'text-success fw-semibold':oi===item.selectedIndex?'text-danger':''}">${escapeHtmlL(option)}</div>`).join("")}</div></div>` : `<div class="pv-review-item mb-2"><strong>${i+1}. ${escapeHtmlL(item.title||"SQL Query")}</strong><span class="badge ${item.passed?'bg-success':'bg-danger'} ms-2">${item.passed?'Passed':'Not passed'}</span><p class="small text-muted">${escapeHtmlL(item.prompt||"")}</p><div class="small fw-semibold">Student query</div><pre class="pv-code-review">${escapeHtmlL(item.query||"")}</pre><details><summary class="small text-info">Expected solution</summary><pre class="pv-code-review mt-2">${escapeHtmlL(item.solution||"")}</pre></details></div>`).join("") || '<div class="small text-muted">No SQL review data saved.</div>'}`;
+    return;
+  }
   try {
     const [examQuestions, codeSubs] = await Promise.all([
       listQuestionsForExam(examIdForCode).catch(() => []),

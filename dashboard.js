@@ -254,7 +254,7 @@ export function renderResultsTable(tbodyEl, rows) {
             title="${r.status === "absent" ? "Add Marks" : "Edit Marks"}">
             <i class="bi bi-pencil-square"></i>
           </button>
-          ${r.status !== "absent" ? `<button class="btn btn-sm btn-outline-info ms-1" data-view-result-detail="${r.studentId}" data-exam-id="${r.examId}" title="View full exam details"><i class="bi bi-eye"></i></button>` : ""}
+          ${r.status !== "absent" ? `<button class="btn btn-sm btn-outline-info ms-1" data-view-result-detail="${r.studentId}" data-exam-id="${r.examId}" data-submission-id="${r.submissionId || ""}" title="View full exam details"><i class="bi bi-eye"></i></button>` : ""}
         </td>
       </tr>`
     )
@@ -299,7 +299,7 @@ export function buildResultRows(submissions, students, exams, filters = {}) {
         submissionId: sub.id,
         examId: sub.examId,
         examTitle: exam.title,
-        examType: String(exam.examType || "mcq").toLowerCase(),
+        examType: String(exam.sqlExamType || exam.examType || "mcq").toLowerCase(),
         score: sub.score,
         percentage: sub.percentage,
         result: sub.status === "absent" ? "ABSENT" : sub.percentage != null ? (isPass(sub.percentage) ? "PASS" : "FAIL") : "-",
@@ -602,7 +602,7 @@ export function computeAllTimePythonTopper(students, submissions, exams, schedul
 
   submissions.forEach((sub) => {
     const exam = examById.get(sub.examId);
-    if (!exam) return;
+    if (!exam || exam.isSqlPractice || String(exam.course || exam.subject || "").toLowerCase() === "sql") return;
     if (!["submitted", "auto-submitted"].includes(sub.status)) return;
 
     const percentage = Number(sub.percentage);
@@ -749,7 +749,7 @@ export function computeWeeklyCodingToppers(students, submissions, exams) {
 
   submissions.forEach((sub) => {
     const exam = examById.get(sub.examId);
-    if (!exam || !["coding", "mixed"].includes(exam.examType)) return;
+    if (!exam || exam.isSqlPractice || String(exam.course || exam.subject || "").toLowerCase() === "sql" || !["coding", "mixed"].includes(exam.examType)) return;
     if (!["submitted", "auto-submitted"].includes(sub.status)) return;
     if (!sub.submittedAt || new Date(sub.submittedAt) < oneWeekAgo) return;
 

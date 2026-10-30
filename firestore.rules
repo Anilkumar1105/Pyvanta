@@ -307,6 +307,43 @@ service cloud.firestore {
     }
 
 
+    // ===================== Premium SQL Learning =====================
+    // SQL content is readable only by active 360-day Premium subscribers.
+    // Admins retain full content management access.
+    function hasActivePremiumSql() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/subscriptions/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/subscriptions/$(request.auth.uid)).data.status == 'active' &&
+        get(/databases/$(database)/documents/subscriptions/$(request.auth.uid)).data.planId in ['premium', '12m'] &&
+        get(/databases/$(database)/documents/subscriptions/$(request.auth.uid)).data.expiresAt > request.time;
+    }
+    match /sqlContent/{itemId} {
+      allow read: if isAdmin() || (hasActivePremiumSql() && resource.data.published == true);
+      allow create, update, delete: if isAdmin();
+    }
+    match /sqlMcqs/{itemId} {
+      allow read: if isAdmin() || (hasActivePremiumSql() && resource.data.published == true);
+      allow create, update, delete: if isAdmin();
+    }
+    match /sqlChallenges/{itemId} {
+      allow read: if isAdmin() || (hasActivePremiumSql() && resource.data.published == true);
+      allow create, update, delete: if isAdmin();
+    }
+    match /sqlVisualizations/{itemId} {
+      allow read: if isAdmin() || (hasActivePremiumSql() && resource.data.published == true);
+      allow create, update, delete: if isAdmin();
+    }
+    match /sqlExamAttempts/{attemptId} {
+      allow create: if hasActivePremiumSql() && request.resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (hasActivePremiumSql() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+    match /sqlSubmissions/{submissionId} {
+      allow create: if hasActivePremiumSql() && request.resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (hasActivePremiumSql() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     // ===================== Certificates & Promotions =====================
     // Private certificate records: students can read only their own records;
     // only admins can issue, edit, or revoke certificates.
