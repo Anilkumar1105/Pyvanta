@@ -24,3 +24,7 @@ export function subscriptionCanAccessAllSpecialSections(subscription) {
 export function subscriptionCanAccessVisualizations(subscription) {
   return !!subscription && subscription.planId === "premium";
 }
+
+export function subscriptionCanAccessSql(subscription) {
+  return !!subscription && subscription.planId === "premium" && subscription.plan?.durationDays === 360;
+}
