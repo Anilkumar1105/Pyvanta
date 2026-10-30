@@ -2673,10 +2673,28 @@ document.getElementById("questionImportFile")?.addEventListener("change",async e
           q.questionKey=id;parsed.push(q);
         }
       } else {
-        for(const sheetName of wb.SheetNames){
-          if(["INSTRUCTIONS","SQL_TEST_CASES"].includes(sheetName))continue;
-          const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{defval:""});
-          for(const row of rows)parsed.push(rowToImportQuestion(normalizeRow(row)));
+        for (const sheetName of wb.SheetNames) {
+          // Ignore helper sheets regardless of capitalization or surrounding spaces.
+          const normalizedSheetName = String(sheetName || "").trim().toUpperCase();
+          if (["INSTRUCTIONS", "SQL_TEST_CASES"].includes(normalizedSheetName)) continue;
+
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+          for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            const normalizedRow = normalizeRow(rows[rowIndex]);
+
+            // Ignore completely blank rows instead of treating them as questions.
+            const hasData = Object.values(normalizedRow).some(
+              value => value !== null && value !== undefined && String(value).trim() !== ""
+            );
+            if (!hasData) continue;
+
+            try {
+              parsed.push(rowToImportQuestion(normalizedRow));
+            } catch (error) {
+              // Excel row 1 contains headers, so data row index 0 is Excel row 2.
+              throw new Error(`${sheetName}, Excel row ${rowIndex + 2}: ${error.message}`);
+            }
+          }
         }
       }
     }
