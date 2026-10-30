@@ -315,6 +315,13 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Automatic certificate requests are written only by the trusted callable
+    // Cloud Function (Admin SDK). Students can read their own request history.
+    match /certificateRequests/{requestId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
     // Public verification registry intentionally contains only certificate
     // ID, student display name, course, level, dates and status (no email/UID).
     match /publicCertificates/{certificateId} {

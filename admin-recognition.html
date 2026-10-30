@@ -12,13 +12,14 @@
 <div class="mb-4"><div class="small-label">Student recognition centre</div><h1 class="display-6 fw-bold">Certificates & Promotions</h1><p class="muted">Issue verified certificates, run learning campaigns and publish approved student transformations.</p></div>
 <div id="status" class="alert d-none" role="status"></div>
 <ul class="nav nav-pills gap-2 mb-4" id="recognitionTabs">
-<li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#certPane">Certificates</button></li>
+<li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#certPane">Certificates & Requests</button></li>
 <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#promoPane">Promotions</button></li>
 <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#storiesPane">Student transformations</button></li>
 </ul>
 <div class="tab-content">
 <section class="tab-pane fade show active" id="certPane">
-<div class="row g-4"><div class="col-lg-5"><div class="pv-card"><h5 class="mb-3"><i class="bi bi-award me-2"></i>Issue a certificate</h5>
+<div class="pv-card mb-4"><div class="d-flex justify-content-between align-items-center mb-3"><div><h5 class="mb-1">Automatic certificate history</h5><p class="small muted mb-0">View certificates automatically generated after students meet the eligibility requirements.</p></div><button id="refreshCertificateRequests" class="btn btn-sm btn-outline-light">Refresh requests</button></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Student</th><th>Course</th><th>Reason</th><th>Requested</th><th>Status</th><th>Certificate</th></tr></thead><tbody id="certificateRequestRows"><tr><td colspan="6" class="muted">Loading requests…</td></tr></tbody></table></div></div>
+<div class="row g-4"><div class="col-lg-5"><div class="pv-card"><h5 class="mb-3"><i class="bi bi-award me-2"></i>Issue a certificate</h5><div id="selectedRequestNotice" class="alert alert-info d-none small"></div><input type="hidden" id="activeCertificateRequest">
 <form id="certificateForm" class="vstack gap-3">
 <div><label class="form-label">Student</label><select id="certStudent" class="form-select" required><option value="">Loading students…</option></select></div>
 <div class="row g-2"><div class="col-7"><label class="form-label">Course</label><select id="certCourse" class="form-select"><option>Python</option><option>SQL</option><option>Pyvanta Excellence</option></select></div><div class="col-5"><label class="form-label">Level</label><select id="certLevel" class="form-select"><option>Bronze</option><option>Silver</option><option>Gold</option><option>Platinum</option></select></div></div>

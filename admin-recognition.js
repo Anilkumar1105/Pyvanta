@@ -25,6 +25,11 @@ async function loadStudents() {
     $(id).innerHTML='<option value="">Select a student</option>'+students.map(s=>`<option value="${esc(s.uid)}">${esc(optionLabel(s))}</option>`).join("");
   }
 }
+async function loadCertificateRequests() {
+  const snap=await getDocs(collection(db,"certificateRequests"));
+  const rows=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.issuedAt?.seconds||b.requestedAt?.seconds||0)-(a.issuedAt?.seconds||a.requestedAt?.seconds||0));
+  $("certificateRequestRows").innerHTML=rows.length?rows.map(r=>`<tr><td>${esc(r.studentName||students.find(s=>s.uid===r.uid)?.name||"Student")}</td><td>${esc(r.course)}</td><td class="small">${esc(r.reason||"Automatic performance check")}</td><td class="small">${esc(r.requestDate||"—")}</td><td><span class="badge ${r.status==="issued"?"text-bg-success":"text-bg-secondary"}">${esc((r.status||"issued").toUpperCase())}</span><div class="small muted mt-1">${Number(r.completedExamCount)||0} exams · ${Number(r.performanceAverage)||0}% average</div></td><td>${r.certificateId?`<code>${esc(r.certificateId)}</code>`:"—"}</td></tr>`).join(""):'<tr><td colspan="6" class="muted">No certificate requests yet.</td></tr>';
+}
 async function loadCertificates() {
   const snap=await getDocs(query(collection(db,"certificates"),orderBy("issuedAt","desc")));
   $("certificateRows").innerHTML=snap.empty?'<tr><td colspan="5" class="muted">No certificates issued yet.</td></tr>':snap.docs.map(d=>{
@@ -76,12 +81,19 @@ $("certificateForm").addEventListener("submit",async e=>{
   if(!student) return notify("Select a valid student.", "warning");
   if(!$("certConsent").checked) return notify("Confirm that the student agreed to receive the certificate.", "warning");
   if(!$("certEligibility").checked) return notify("Confirm that course completion eligibility has been verified.", "warning");
+  const requestId=$("activeCertificateRequest").value;
   const id=`PV-${new Date().getFullYear()}-${crypto.randomUUID().replaceAll("-","").slice(0,10).toUpperCase()}`;
   const record={uid,studentName:student.name||student.email||"Student",course:$("certCourse").value,level:$("certLevel").value,completionDate:$("certDate").value,note:$("certNote").value.trim(),status:"issued",eligibilityVerified:true,studentConsentConfirmed:true,issuedAt:serverTimestamp(),issuedBy:auth.currentUser.uid};
   try {
+    if(requestId){
+      const requestSnap=await getDoc(doc(db,"certificateRequests",requestId));
+      if(!requestSnap.exists()||requestSnap.data().status!=="pending") return notify("This request is no longer pending. Refresh the requests list.","warning");
+      if(requestSnap.data().uid!==uid||requestSnap.data().course!==record.course) return notify("The selected student and course must match the certificate request.","warning");
+    }
     await setDoc(doc(db,"certificates",id),record);
     await setDoc(doc(db,"publicCertificates",id),{certificateId:id,studentName:record.studentName,course:record.course,level:record.level,completionDate:record.completionDate,status:"issued",issuedAt:serverTimestamp()});
-    e.target.reset(); $("certDate").value=today; notify(`Certificate ${id} issued successfully.`); await loadCertificates();
+    if(requestId){await updateDoc(doc(db,"certificateRequests",requestId),{status:"approved",certificateId:id,reviewedAt:serverTimestamp(),reviewedBy:auth.currentUser.uid});$("activeCertificateRequest").value="";$("selectedRequestNotice").classList.add("d-none");}
+    e.target.reset(); $("certDate").value=today; notify(`Certificate ${id} issued successfully${requestId?" and the student request was approved":""}.`); await Promise.all([loadCertificates(),loadCertificateRequests()]);
   } catch(err){console.error(err);notify(err.message||"Could not issue certificate.","danger");}
 });
 $("promotionForm").addEventListener("submit",async e=>{
@@ -113,9 +125,10 @@ $("storyForm").addEventListener("submit",async e=>{
   }catch(err){console.error(err);notify(err.message||"Could not save story.","danger");}
 });
 $("refreshCertificates").addEventListener("click",loadCertificates);
+$("refreshCertificateRequests").addEventListener("click",loadCertificateRequests);
 $("logoutBtn").addEventListener("click",async()=>{await signOut(auth);location.href="login.html";});
 requireRole("admin",async(user,profile)=>{
   $("adminIdentity").textContent=profile.name||user.email||"Admin";
-  try{await loadStudents();await Promise.all([loadCertificates(),loadPromotions(),loadStories()]);}
+  try{await loadStudents();await Promise.all([loadCertificates(),loadCertificateRequests(),loadPromotions(),loadStories()]);}
   catch(err){console.error(err);notify(err.message||"Unable to load recognition data.","danger");}
 });

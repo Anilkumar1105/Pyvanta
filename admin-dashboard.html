@@ -534,6 +534,14 @@ href="./favicon.svg">
             <label class="form-label">Description</label>
             <textarea class="form-control" id="examDescInput" rows="2"></textarea>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Certificate course mapping</label>
+            <select class="form-select" id="examCourseInput" required>
+              <option value="Python">Python</option>
+              <option value="SQL">SQL</option>
+            </select>
+            <div class="form-text">Choose the course this exam belongs to. Only correctly tagged exams count toward automatic certificates.</div>
+          </div>
           <div class="row g-2">
             <div class="col-6">
               <label class="form-label">Exam Type</label>

@@ -1092,6 +1092,7 @@ document.getElementById("createExamBtn").addEventListener("click", () => {
   document.getElementById("examSubmitBtn").textContent = "Create Exam";
   document.getElementById("examFormError").classList.add("d-none");
   document.getElementById("examTypeInput").disabled = false;
+  document.getElementById("examCourseInput").value = "Python";
   document.getElementById("examMaxViolationsInput").value = 3;
   document.getElementById("examActiveInput").checked = true;
   document.getElementById("examShowResultInput").checked = true;
@@ -1106,6 +1107,7 @@ function openEditExam(examId) {
   document.getElementById("examFormError").classList.add("d-none");
   document.getElementById("examTitleInput").value = exam.title;
   document.getElementById("examDescInput").value = exam.description || "";
+  document.getElementById("examCourseInput").value = exam.course || exam.subject || "Python";
   document.getElementById("examTypeInput").value = exam.examType || "mcq";
   document.getElementById("examTypeInput").disabled = false;
   document.getElementById("examMaxViolationsInput").value = exam.maxViolations ?? 3;
@@ -1146,6 +1148,7 @@ document.getElementById("examForm").addEventListener("submit", async (e) => {
   const data = {
     title: document.getElementById("examTitleInput").value.trim(),
     description: document.getElementById("examDescInput").value.trim(),
+    course: document.getElementById("examCourseInput").value === "SQL" ? "SQL" : "Python",
     examType: document.getElementById("examTypeInput").value,
     maxViolations: Number(document.getElementById("examMaxViolationsInput").value),
     duration: Number(document.getElementById("examDurationInput").value),
