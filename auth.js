@@ -115,7 +115,7 @@ export function requireRole(expectedRole, onReady) {
     // Keep the dashboard accessible for history and renewal; gate premium learning/exam pages.
     if (profile.role === "student") {
       const currentPage = window.location.pathname.split("/").pop() || "index.html";
-      const dashboardPages = new Set(["student-dashboard.html", "subscriptions.html"]);
+      const dashboardPages = new Set(["student-dashboard.html", "subscriptions.html", "my-certificates.html"]);
       if (!dashboardPages.has(currentPage)) {
         try {
           const subscriptionSnap = await getDoc(doc(db, "subscriptions", user.uid));

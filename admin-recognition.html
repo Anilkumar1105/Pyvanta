@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Certificates & Promotions | Pyvanta Admin</title>
+<link rel="icon" href="favicon.svg"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"><link href="pyvanta-theme.css" rel="stylesheet">
+<style>
+:root{color-scheme:dark}body{background:#0b0d12;color:#e8edf7}.recognition-wrap{max-width:1280px;margin:auto;padding:28px 16px}.pv-card{background:#141925;border:1px solid #293246;border-radius:18px;padding:22px}.form-control,.form-select{background:#0d121c;color:#edf2ff;border-color:#354158}.form-control:focus,.form-select:focus{background:#0d121c;color:white}.nav-pills .nav-link{color:#aab4c7}.nav-pills .nav-link.active{background:#8b5cf6;color:white}.muted{color:#9aa8bd}.table{--bs-table-bg:transparent;--bs-table-color:#dce5f4;--bs-table-border-color:#293246}.btn-pv{background:#8b5cf6;color:white;border:0}.btn-pv:hover{background:#7546df;color:white}.small-label{font-size:.76rem;color:#9aa8bd;text-transform:uppercase;letter-spacing:.08em}.story-preview{border:1px solid #344056;border-radius:12px;padding:14px;background:#101622}
+</style></head><body>
+<header class="border-bottom" style="border-color:#293246!important"><div class="container-fluid py-3 d-flex justify-content-between align-items-center"><a href="admin-dashboard.html" class="text-decoration-none text-white fw-bold"><i class="bi bi-arrow-left me-2"></i>Pyvanta Admin</a><div class="d-flex gap-2"><span id="adminIdentity" class="muted small align-self-center"></span><button class="btn btn-sm btn-outline-danger" id="logoutBtn">Logout</button></div></div></header>
+<main class="recognition-wrap">
+<div class="mb-4"><div class="small-label">Student recognition centre</div><h1 class="display-6 fw-bold">Certificates & Promotions</h1><p class="muted">Issue verified certificates, run learning campaigns and publish approved student transformations.</p></div>
+<div id="status" class="alert d-none" role="status"></div>
+<ul class="nav nav-pills gap-2 mb-4" id="recognitionTabs">
+<li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#certPane">Certificates</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#promoPane">Promotions</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#storiesPane">Student transformations</button></li>
+</ul>
+<div class="tab-content">
+<section class="tab-pane fade show active" id="certPane">
+<div class="row g-4"><div class="col-lg-5"><div class="pv-card"><h5 class="mb-3"><i class="bi bi-award me-2"></i>Issue a certificate</h5>
+<form id="certificateForm" class="vstack gap-3">
+<div><label class="form-label">Student</label><select id="certStudent" class="form-select" required><option value="">Loading students…</option></select></div>
+<div class="row g-2"><div class="col-7"><label class="form-label">Course</label><select id="certCourse" class="form-select"><option>Python</option><option>SQL</option><option>Pyvanta Excellence</option></select></div><div class="col-5"><label class="form-label">Level</label><select id="certLevel" class="form-select"><option>Bronze</option><option>Silver</option><option>Gold</option><option>Platinum</option></select></div></div>
+<div><label class="form-label">Completion date</label><input id="certDate" type="date" class="form-control" required></div>
+<div><label class="form-label">Achievement / note</label><input id="certNote" class="form-control" maxlength="180" placeholder="Completed the required course assessments"></div>
+<div class="form-check"><input id="certEligibility" class="form-check-input" type="checkbox" required><label for="certEligibility" class="form-check-label small">I verified that the student met the course completion criteria.</label></div>
+<div class="form-check"><input id="certConsent" class="form-check-input" type="checkbox" required><label for="certConsent" class="form-check-label small">Student has agreed to receive this certificate.</label></div>
+<button class="btn btn-pv" type="submit"><i class="bi bi-patch-check me-1"></i>Approve & issue certificate</button></form></div></div>
+<div class="col-lg-7"><div class="pv-card"><div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0">Issued certificates</h5><button id="refreshCertificates" class="btn btn-sm btn-outline-light">Refresh</button></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Student</th><th>Course</th><th>Certificate ID</th><th>Status</th><th></th></tr></thead><tbody id="certificateRows"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody></table></div></div></div></div>
+</section>
+<section class="tab-pane fade" id="promoPane"><div class="row g-4"><div class="col-lg-5"><div class="pv-card"><h5 class="mb-3">Create a promotion</h5><form id="promotionForm" class="vstack gap-3">
+<div><label class="form-label">Campaign title</label><input id="promoTitle" class="form-control" required maxlength="90" placeholder="7-Day Python Challenge"></div>
+<div><label class="form-label">Description</label><textarea id="promoDescription" class="form-control" rows="3" required maxlength="500" placeholder="Complete daily Python practice tasks…"></textarea></div>
+<div class="row g-2"><div class="col-6"><label class="form-label">Course</label><select id="promoCourse" class="form-select"><option>Python</option><option>SQL</option><option>Both</option></select></div><div class="col-6"><label class="form-label">Reward</label><input id="promoReward" class="form-control" maxlength="100" placeholder="Achievement certificate"></div></div>
+<div class="row g-2"><div class="col-6"><label class="form-label">Start</label><input id="promoStart" type="date" class="form-control" required></div><div class="col-6"><label class="form-label">End</label><input id="promoEnd" type="date" class="form-control" required></div></div>
+<div><label class="form-label">Reward eligibility condition</label><select id="promoMetric" class="form-select"><option value="none">No automatic target (manual campaign)</option><option value="points">Learning Points</option><option value="codingProblems">Unique coding problems completed</option></select></div>
+<div><label class="form-label">Target value</label><input id="promoTarget" type="number" min="1" class="form-control" value="200"></div>
+<div class="form-check"><input id="promoPublish" class="form-check-input" type="checkbox"><label for="promoPublish" class="form-check-label">Publish on homepage and student area</label></div>
+<button class="btn btn-pv">Create promotion</button></form></div></div><div class="col-lg-7"><div class="pv-card"><h5>Campaigns</h5><div id="promotionRows" class="vstack gap-2 muted">Loading…</div></div></div></div></section>
+<section class="tab-pane fade" id="storiesPane"><div class="row g-4"><div class="col-lg-5"><div class="pv-card"><h5 class="mb-3">Publish a student transformation</h5><form id="storyForm" class="vstack gap-3">
+<div><label class="form-label">Student</label><select id="storyStudent" class="form-select" required><option value="">Loading students…</option></select></div>
+<div><label class="form-label">Course</label><select id="storyCourse" class="form-select"><option>Python</option><option>SQL</option></select></div>
+<div class="row g-2"><div class="col-6"><label class="form-label">Before score (%)</label><input id="storyBefore" type="number" min="0" max="100" class="form-control" required></div><div class="col-6"><label class="form-label">After score (%)</label><input id="storyAfter" type="number" min="0" max="100" class="form-control" required></div></div>
+<div class="row g-2"><div class="col-6"><label class="form-label">Before problems solved</label><input id="storyBeforeProblems" type="number" min="0" class="form-control" value="0"></div><div class="col-6"><label class="form-label">After problems solved</label><input id="storyAfterProblems" type="number" min="0" class="form-control" value="0"></div></div>
+<div><label class="form-label">Student quote (optional)</label><textarea id="storyQuote" class="form-control" rows="2" maxlength="220"></textarea></div>
+<div class="form-check"><input id="storyConsent" class="form-check-input" type="checkbox" required><label for="storyConsent" class="form-check-label small">I have obtained the student's permission to publish their name and results.</label></div>
+<div class="form-check"><input id="storyPublish" class="form-check-input" type="checkbox"><label for="storyPublish" class="form-check-label">Publish on homepage after saving</label></div>
+<button class="btn btn-pv">Save transformation</button></form></div></div><div class="col-lg-7"><div class="pv-card"><h5>Student transformations</h5><div id="storyRows" class="vstack gap-2 muted">Loading…</div></div></div></div></section>
+</div></main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script type="module" src="admin-recognition.js"></script></body></html>

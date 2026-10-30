@@ -307,6 +307,54 @@ service cloud.firestore {
     }
 
 
+    // ===================== Certificates & Promotions =====================
+    // Private certificate records: students can read only their own records;
+    // only admins can issue, edit, or revoke certificates.
+    match /certificates/{certificateId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Public verification registry intentionally contains only certificate
+    // ID, student display name, course, level, dates and status (no email/UID).
+    match /publicCertificates/{certificateId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Private admin-managed campaign source; only sanitized projections are public.
+    match /promotions/{promotionId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    match /publicPromotions/{promotionId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // A student can join a campaign as themselves; admins can review entries.
+    match /promotionEntries/{entryId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'joined';
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // Private student story source contains UID, consent and audit metadata.
+    // Public pages read only a sanitized projection after admin approval.
+    match /studentSuccessStories/{storyId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    match /publicStudentSuccessStories/{storyId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Baseline/final assessment records are private and admin-managed.
+    match /courseBaselines/{baselineId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if isAdmin();
+    }
+
     // mail/{mailId}: admin-only enqueue for Firebase Trigger Email extension.
     // Configure the extension to watch the `mail` collection and connect a
     // verified SMTP provider. The extension sends queued messages server-side.
