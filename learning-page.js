@@ -98,7 +98,7 @@ function renderNav() {
       const active = view.type === item.kind && (item.kind !== "concept" || view.id === item.id);
       const disabled = item.status === "locked";
       return `
-        <button type="button" class="btn btn-sm text-start learning-nav-item ${active ? "active" : ""} ${disabled ? "disabled" : ""}"
+        <button type="button" class="btn btn-sm text-start learning-nav-item status-${item.status} ${active ? "active" : ""} ${disabled ? "disabled" : ""}"
           data-kind="${item.kind}" data-id="${item.id}" ${disabled ? "disabled" : ""}>
           <i class="bi ${icon} me-2"></i>${item.label}
         </button>`;
@@ -581,6 +581,7 @@ async function gradeSqlQuery(q, queryText, tests) {
     const started=performance.now();let database=null;
     try{
       database=new SQL.Database();database.exec(q.schemaSql||"");
+      if(test.setupSql) database.exec(test.setupSql);
       const queryResults=database.exec(queryText);
       const rows=queryResults.length?queryResults.flatMap(t=>t.values.map(values=>Object.fromEntries(t.columns.map((c,i)=>[c,values[i]])))):[];
       const expected=JSON.parse(test.expectedOutput||q.expectedOutput||"[]");

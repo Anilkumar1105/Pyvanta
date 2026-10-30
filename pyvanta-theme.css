@@ -728,3 +728,96 @@ button:disabled { cursor:wait; opacity:.7; }
 .concept-content th{background:rgba(139,92,246,.12)}
 .cv-toolbar #cvSubject{max-width:155px;flex:0 0 155px}
 @media(max-width:560px){.cv-toolbar #cvSubject{max-width:none;width:100%;flex:1}}
+
+
+/* Pyvanta Learning: improve sidebar and lesson heading contrast on midnight theme. */
+.learning-body .learning-path-card {
+  background: #101522 !important;
+  border-color: rgba(139,92,246,.38) !important;
+}
+.learning-body .learning-path-card > .fw-semibold {
+  color: #22d3ee !important;
+  letter-spacing: .09em;
+  font-weight: 800 !important;
+}
+.learning-body .learning-nav-item {
+  color: #cbd5e1 !important;
+  text-align: left;
+  line-height: 1.45;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+}
+.learning-body .learning-nav-item:hover:not(.disabled) {
+  color: #f5f3ff !important;
+  background: rgba(139,92,246,.16) !important;
+  border-color: rgba(167,139,250,.38) !important;
+}
+.learning-body .learning-nav-item.status-completed:not(.active) {
+  color: #a7f3d0 !important;
+}
+.learning-body .learning-nav-item.status-unlocked:not(.active) {
+  color: #bae6fd !important;
+}
+.learning-body .learning-nav-item.status-locked,
+.learning-body .learning-nav-item.disabled {
+  color: #94a3b8 !important;
+  opacity: .88;
+}
+.learning-body .learning-nav-item .text-success { color: #34d399 !important; }
+.learning-body .learning-nav-item .text-primary { color: #22d3ee !important; }
+.learning-body .learning-nav-item .text-muted { color: #94a3b8 !important; }
+.learning-body .learning-nav-item.active,
+.learning-body .learning-nav-item.active:hover {
+  color: #fff !important;
+  background: linear-gradient(100deg,#6d4aff,#8b5cf6 65%,#a855f7) !important;
+  border-color: rgba(196,181,253,.65) !important;
+  box-shadow: 0 6px 18px rgba(124,58,237,.25) !important;
+}
+.learning-body #learningContent {
+  background: #0d111b !important;
+  border-color: rgba(34,211,238,.22) !important;
+}
+.learning-body #learningContent > h1,
+.learning-body #learningContent > h2,
+.learning-body #learningContent > h3,
+.learning-body #learningContent > h4,
+.learning-body #learningContent > h5,
+.learning-body #learningContent > h6,
+.learning-body #learningContent .d-flex > h5 {
+  color: #eaf2ff !important;
+}
+.learning-body #learningContent .concept-content {
+  color: #dbe5f5 !important;
+  background: #151b2a !important;
+  border-color: #343b52 !important;
+  border-left-color: #8b5cf6 !important;
+}
+.learning-body #learningContent .concept-content h1,
+.learning-body #learningContent .concept-content h2,
+.learning-body #learningContent .concept-content h3,
+.learning-body #learningContent .concept-content h4,
+.learning-body #learningContent .concept-content h5,
+.learning-body #learningContent .concept-content h6 {
+  color: #67e8f9 !important;
+  font-weight: 800;
+}
+.learning-body #learningContent .concept-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  color: #e2e8f0;
+  background: #111827;
+}
+.learning-body #learningContent .concept-content th {
+  color: #a5f3fc;
+  background: rgba(34,211,238,.12);
+}
+.learning-body #learningContent .concept-content th,
+.learning-body #learningContent .concept-content td {
+  border: 1px solid #374151;
+  padding: .65rem .8rem;
+  text-align: left;
+}
+.learning-body #learningContent .concept-content tr:nth-child(even) td {
+  background: rgba(148,163,184,.06);
+}

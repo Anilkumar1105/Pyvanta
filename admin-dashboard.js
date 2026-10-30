@@ -1613,14 +1613,15 @@ document.getElementById("codingForm").addEventListener("submit", async (e) => {
   const publish = document.activeElement?.dataset?.publish === "true";
   const data = { ...collectCodingFormData(), published: publish };
 
-  if (data.subject === "SQL") {
-    data.starterQuery = data.starterCode;
-    if (!data.schemaSql.trim() || !data.expectedOutput.trim()) {
-      errorEl.textContent = "SQL questions require SQLite schema/setup SQL and expected output JSON.";
+  if (String(data.subject).toLowerCase() === "sql") {
+    if (!data.schemaSql.trim()) {
+      errorEl.textContent = "SQL questions need SQLite Schema / Table Setup SQL (CREATE TABLE and INSERT statements).";
       errorEl.classList.remove("d-none"); return;
     }
-    data.visibleTestCases = [{input:"", expectedOutput:data.expectedOutput}];
-    data.hiddenTestCases = [];
+    if (![...data.visibleTestCases, ...data.hiddenTestCases].some(test => String(test.expectedOutput || "").trim())) {
+      errorEl.textContent = "Add at least one SQL test case with Expected Output JSON.";
+      errorEl.classList.remove("d-none"); return;
+    }
   }
   if (!data.visibleTestCases.length && !data.hiddenTestCases.length) {
     errorEl.textContent = "Add at least one test case (public or hidden).";
@@ -2317,7 +2318,13 @@ function openLearningCodingModal(question = null) {
   document.getElementById("lcMarksInput").value = question?.marks || "";
   document.getElementById("lcTimeLimitInput").value = question?.timeLimit || 5;
   document.getElementById("lcOrderInput").value = question?.order ?? levelCodingQuestions.length;
-  document.getElementById("lcStarterInput").value = question?.starterCode || "";
+  const isSqlLevel = String(activeLevel?.subject || "Python").toLowerCase() === "sql";
+  document.getElementById("lcSubjectBadge").textContent = isSqlLevel ? "🗄️ SQL" : "🐍 Python";
+  document.getElementById("lcSqlSchemaWrap").hidden = !isSqlLevel;
+  document.getElementById("lcSchemaSqlInput").value = question?.schemaSql || "";
+  document.getElementById("lcStarterLabel").textContent = isSqlLevel ? "Starter Query (SQL)" : "Starter Code (Python)";
+  document.getElementById("lcStarterInput").placeholder = isSqlLevel ? "SELECT ...;" : "def solve():";
+  document.getElementById("lcStarterInput").value = question?.starterQuery || question?.starterCode || "";
 
   ["lcExamplesWrap", "lcVisibleTestsWrap", "lcHiddenTestsWrap"].forEach((id) => {
     document.getElementById(id).innerHTML = "";
@@ -2337,7 +2344,8 @@ document.getElementById("learningCodingForm").addEventListener("submit", async (
 
   const data = {
     levelId: activeLevel.id,
-    language: "python",
+    subject: activeLevel.subject || "Python",
+    language: String(activeLevel.subject || "Python").toLowerCase(),
     title: document.getElementById("lcTitleInput").value.trim(),
     description: document.getElementById("lcDescInput").value.trim(),
     inputDescription: document.getElementById("lcInputDescInput").value.trim(),
@@ -2346,19 +2354,22 @@ document.getElementById("learningCodingForm").addEventListener("submit", async (
     timeLimit: Number(document.getElementById("lcTimeLimitInput").value),
     order: Number(document.getElementById("lcOrderInput").value),
     starterCode: document.getElementById("lcStarterInput").value,
+    starterQuery: String(activeLevel.subject || "Python").toLowerCase() === "sql" ? document.getElementById("lcStarterInput").value : "",
+    schemaSql: document.getElementById("lcSchemaSqlInput").value,
     examples: collectDynamicRows("lcExamplesWrap", false).filter((r) => r.input || r.output),
     visibleTestCases: collectDynamicRows("lcVisibleTestsWrap", true).filter((r) => r.input || r.expectedOutput),
     hiddenTestCases: collectDynamicRows("lcHiddenTestsWrap", true).filter((r) => r.input || r.expectedOutput)
   };
 
-  if (data.subject === "SQL") {
-    data.starterQuery = data.starterCode;
-    if (!data.schemaSql.trim() || !data.expectedOutput.trim()) {
-      errorEl.textContent = "SQL questions require SQLite schema/setup SQL and expected output JSON.";
+  if (String(data.subject).toLowerCase() === "sql") {
+    if (!data.schemaSql.trim()) {
+      errorEl.textContent = "SQL questions need SQLite Schema / Table Setup SQL (CREATE TABLE and INSERT statements).";
       errorEl.classList.remove("d-none"); return;
     }
-    data.visibleTestCases = [{input:"", expectedOutput:data.expectedOutput}];
-    data.hiddenTestCases = [];
+    if (![...data.visibleTestCases, ...data.hiddenTestCases].some(test => String(test.expectedOutput || "").trim())) {
+      errorEl.textContent = "Add at least one SQL test case with Expected Output JSON.";
+      errorEl.classList.remove("d-none"); return;
+    }
   }
   if (!data.visibleTestCases.length && !data.hiddenTestCases.length) {
     errorEl.textContent = "Add at least one test case (public or hidden).";
@@ -2450,12 +2461,21 @@ let parsedImportQuestions = [];
 const IMPORT_FIELDS = ["type","questionText","options","correctAnswer","marks","title","description","inputDescription","outputDescription","constraints","difficulty","timeLimit","memoryLimit","starterCode","examplesJson","publicTestsJson","hiddenTestsJson","company","published"];
 function downloadConceptTemplate() {
   if (!window.XLSX) { alert("Excel library did not load. Refresh the page and try again."); return; }
-  const headers = ["Type", "Title", "Content", "Order"];
-  const sample = ["CONCEPT", "What is Programming?", "Programming means giving instructions to a computer to perform a task.\\n\\nExample:\\n1. Enter PIN\\n2. Select amount", 1];
+  const headers = ["Type", "Title", "ContentMarkdown", "TableMarkdown", "Order"];
+  const sample = ["CONCEPT", "Database vs Spreadsheet", "A database manages related data with structured rules. Use the table below to compare both approaches.", "| Feature | Database | Spreadsheet |\\n|---|---|---|\\n| Data size | Large datasets | Small datasets |\\n| Multi-user access | Strong support | Limited collaboration |\\n| Relationships | Tables and keys | Mostly separate sheets |", 1];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
-  ws["!cols"] = [{wch:16},{wch:32},{wch:72},{wch:12}];
+  ws["!cols"] = [{wch:16},{wch:32},{wch:72},{wch:72},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws, "Concepts");
+  const guide = XLSX.utils.aoa_to_sheet([
+    ["COLUMN","WHAT TO ENTER"],
+    ["ContentMarkdown","Concept explanation. Markdown headings, lists, code blocks and links are supported."],
+    ["TableMarkdown","Optional Markdown table. Use | between columns and a separator row such as |---|---|."],
+    ["Order","Display order within the selected learning level."],
+    ["Type","Use CONCEPT for every concept row."]
+  ]);
+  guide["!cols"]=[{wch:24},{wch:100}];
+  XLSX.utils.book_append_sheet(wb,guide,"Instructions");
   XLSX.writeFile(wb, "learning-concepts-template.xlsx");
 }
 document.getElementById("downloadConceptTemplateBtn")?.addEventListener("click", downloadConceptTemplate);
@@ -2489,6 +2509,37 @@ document.getElementById("downloadSpecialSqlTemplateBtn")?.addEventListener("clic
 });
 document.getElementById("downloadLearningMcqTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("mcq"));
 document.getElementById("downloadLearningCodingTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("coding"));
+document.getElementById("downloadLearningSqlTemplateBtn")?.addEventListener("click",()=>{
+  if(!window.XLSX){alert("Excel library did not load. Refresh the page and try again.");return;}
+  const wb=XLSX.utils.book_new();
+  const questions=[
+    ["QuestionID","Type","Title","Description","InputDescription","OutputDescription","SchemaSQL","StarterQuery","Difficulty","Marks","TimeLimit","Order","Published"],
+    ["SQL001","SQL_QUERY","Top Scoring Students","Return student names and marks for students scoring above 80, sorted from highest to lowest.","A students table is created and populated by SchemaSQL.","Return columns: name, marks.","CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL, marks INTEGER NOT NULL);\nINSERT INTO students VALUES (1,'Anil',85),(2,'Ravi',65),(3,'Priya',92),(4,'Kiran',80);","SELECT name, marks\nFROM students\nWHERE marks > 80\nORDER BY marks DESC;","easy",10,5,1,true]
+  ];
+  const tests=[
+    ["QuestionID","Visibility","TestCaseName","ExpectedOutputJSON","SetupSQL"],
+    ["SQL001","PUBLIC","Above 80 scores",'[{"name":"Priya","marks":92},{"name":"Anil","marks":85}]',""],
+    ["SQL001","HIDDEN","Only scores greater than 90",'[{"name":"Priya","marks":92}]',"DELETE FROM students WHERE marks <= 90;"]
+  ];
+  const wsQ=XLSX.utils.aoa_to_sheet(questions),wsT=XLSX.utils.aoa_to_sheet(tests);
+  wsQ["!cols"]=questions[0].map(x=>({wch:Math.max(16,Math.min(54,String(x).length+8))}));
+  wsT["!cols"]=tests[0].map(x=>({wch:Math.max(18,Math.min(60,String(x).length+8))}));
+  XLSX.utils.book_append_sheet(wb,wsQ,"SQL_QUESTIONS");
+  XLSX.utils.book_append_sheet(wb,wsT,"SQL_TEST_CASES");
+  const guide=XLSX.utils.aoa_to_sheet([
+    ["HOW TO IMPORT SQL LEARNING QUESTIONS"],
+    ["1. Add one row per question in SQL_QUESTIONS. QuestionID must be unique in this workbook."],
+    ["2. Put CREATE TABLE and INSERT sample rows in SchemaSQL. Use semicolons between SQL statements."],
+    ["3. Add one or more rows per QuestionID in SQL_TEST_CASES. Visibility must be PUBLIC or HIDDEN."],
+    ["4. ExpectedOutputJSON must be a JSON array of objects. Object keys must match the result column names."],
+    ["5. Optional SetupSQL runs after SchemaSQL and before the student's query for that test only."],
+    ["6. Keep SQL identifiers and output column names consistent. SQLite syntax is supported."],
+    ["7. Select an SQL learning level before importing this workbook."]
+  ]);
+  guide["!cols"]=[{wch:120}];
+  XLSX.utils.book_append_sheet(wb,guide,"INSTRUCTIONS");
+  XLSX.writeFile(wb,"pyvanta-learning-sql-query-template.xlsx");
+});
 document.getElementById("importLearningMcqBtn")?.addEventListener("click",()=>openQuestionImport("learning-mcq"));
 document.getElementById("importLearningCodingBtn")?.addEventListener("click",()=>openQuestionImport("learning-coding"));
 document.getElementById("quickImportLearningMcqBtn")?.addEventListener("click",()=>openQuestionImport("learning-mcq"));
@@ -2513,7 +2564,9 @@ function rowToImportQuestion(row) {
   const type=cleanCell(get("type","questiontype")).toLowerCase();
   if (type === "concept") {
     const title = cleanCell(get("title", "concepttitle"));
-    const content = String(get("content", "conceptcontent", "description") || "");
+    let content = String(get("contentmarkdown", "content", "conceptcontent", "description") || "");
+    const tableMarkdown = String(get("tablemarkdown", "markdownTable", "table") || "").trim();
+    if (tableMarkdown) content = `${content.trim()}\n\n## Reference Table\n\n${tableMarkdown}`;
     const order = Number(get("order") || 0);
     if (!title || !content.trim()) throw new Error("Concept needs Title and Content.");
     return {type:"concept", title, content, order:Number.isFinite(order) ? order : 0};
@@ -2535,12 +2588,26 @@ function rowToImportQuestion(row) {
     const title=cleanCell(get("title","questiontitle"));
     const description=cleanCell(get("description","problemstatement","questiontext"));
     const schemaSql=String(get("schemasql","setupsql","database"));
-    const starterCode=String(get("starterquery","startercode","query")||"SELECT * FROM ");
+    const starterCode=String(get("starterquery","startercode","query")||"-- Write your SQL query here");
+    const difficulty=cleanCell(get("difficulty")).toLowerCase()||"medium";
+    const publicRaw=get("publictestsjson","publictestcases");
+    const hiddenRaw=get("hiddentestsjson","hiddentestcases");
+    let visibleTestCases=parseJsonCell(publicRaw,[]);
+    let hiddenTestCases=parseJsonCell(hiddenRaw,[]);
     const expectedOutput=String(get("expectedoutput","expectedrows","answer"));
-    if(!title||!description||!schemaSql.trim()||!expectedOutput.trim()) throw new Error("SQL_QUERY needs Title, Description, SchemaSQL and ExpectedOutput JSON.");
-    let expected;try{expected=JSON.parse(expectedOutput);}catch{throw new Error(`SQL query "${title}" ExpectedOutput must be valid JSON.`);}
-    if(!Array.isArray(expected)) throw new Error(`SQL query "${title}" ExpectedOutput must be a JSON array of rows.`);
-    return {type:"sql_query",subject:"SQL",language:"sql",title,description,schemaSql,starterCode,starterQuery:starterCode,expectedOutput:JSON.stringify(expected),visibleTestCases:[{input:"",expectedOutput:JSON.stringify(expected)}],hiddenTestCases:parseJsonCell(get("hiddentestsjson","hiddentests"),[]),difficulty:cleanCell(get("difficulty")).toLowerCase()||"medium",marks,timeLimit:Number(get("timelimit")||5),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
+    if(!visibleTestCases.length && expectedOutput.trim()) {
+      let expected;try{expected=JSON.parse(expectedOutput);}catch{throw new Error(`SQL query "${title}" ExpectedOutput must be valid JSON.`);}
+      if(!Array.isArray(expected)) throw new Error(`SQL query "${title}" ExpectedOutput must be a JSON array of rows.`);
+      visibleTestCases=[{input:"",expectedOutput:JSON.stringify(expected)}];
+    }
+    const normalizeTests=(tests)=>tests.map((t)=>({input:String(t.input??""),expectedOutput:typeof t.expectedOutput==="string"?t.expectedOutput:JSON.stringify(t.expectedOutput??t.output??[]),setupSql:String(t.setupSql??"")}));
+    visibleTestCases=normalizeTests(visibleTestCases); hiddenTestCases=normalizeTests(hiddenTestCases);
+    if(!title||!description||!schemaSql.trim()||(!visibleTestCases.length&&!hiddenTestCases.length)) throw new Error("SQL_QUERY needs Title, Description, SchemaSQL and at least one public/hidden test case.");
+    for(const [idx,test] of [...visibleTestCases,...hiddenTestCases].entries()) {
+      try { const parsed=JSON.parse(test.expectedOutput); if(!Array.isArray(parsed)) throw new Error(); }
+      catch { throw new Error(`SQL query "${title}" test case ${idx+1}: ExpectedOutputJSON must be a JSON array of rows.`); }
+    }
+    return {type:"sql_query",subject:"SQL",language:"sql",title,description,inputDescription:cleanCell(get("inputdescription","input")),outputDescription:cleanCell(get("outputdescription","output")),schemaSql,starterCode,starterQuery:starterCode,expectedOutput:visibleTestCases[0]?.expectedOutput||hiddenTestCases[0]?.expectedOutput||"[]",visibleTestCases,hiddenTestCases,difficulty,marks,timeLimit:Number(get("timelimit")||5),order:Number(get("order")||0),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
   }
   if(type==="coding"||type==="code") {
     const title=cleanCell(get("title","questiontitle"));
@@ -2583,13 +2650,42 @@ document.getElementById("questionImportFile")?.addEventListener("change",async e
     else {
       if(!window.XLSX) throw new Error("Excel reader did not load. Refresh the page and try again.");
       const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
-      for(const sheetName of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{defval:""});for(const row of rows)parsed.push(rowToImportQuestion(Object.fromEntries(Object.entries(row).map(([k,v])=>[k.toLowerCase().replace(/[^a-z0-9]/g,""),v]))));}
+      const normalizeRow = row => Object.fromEntries(Object.entries(row).map(([k,v])=>[k.toLowerCase().replace(/[^a-z0-9]/g,""),v]));
+      if(importTarget==="learning-coding" && String(activeLevel?.subject||"Python").toLowerCase()==="sql" && wb.SheetNames.includes("SQL_QUESTIONS") && wb.SheetNames.includes("SQL_TEST_CASES")) {
+        const questionRows=XLSX.utils.sheet_to_json(wb.Sheets["SQL_QUESTIONS"],{defval:""}).map(normalizeRow);
+        const testRows=XLSX.utils.sheet_to_json(wb.Sheets["SQL_TEST_CASES"],{defval:""}).map(normalizeRow);
+        const testMap=new Map();
+        for(const tr of testRows){
+          const id=cleanCell(tr.questionid);if(!id)continue;
+          const list=testMap.get(id)||[];
+          let expected=cleanCell(tr.expectedoutputjson);
+          try{const parsedExpected=JSON.parse(expected);if(!Array.isArray(parsedExpected))throw new Error();}catch{throw new Error(`SQL_TEST_CASES: ${id} has invalid ExpectedOutputJSON; expected a JSON array of rows.`);}
+          list.push({visibility:cleanCell(tr.visibility).toUpperCase(),input:"",expectedOutput:expected,setupSql:String(tr.setupsql||"")});
+          testMap.set(id,list);
+        }
+        for(const row of questionRows){
+          const id=cleanCell(row.questionid), tests=testMap.get(id)||[];
+          const publicTests=tests.filter(t=>t.visibility!=="HIDDEN").map(({visibility,...t})=>t);
+          const hiddenTests=tests.filter(t=>t.visibility==="HIDDEN").map(({visibility,...t})=>t);
+          if(!id)throw new Error("Every SQL_QUESTIONS row must have a QuestionID.");
+          if(!tests.length)throw new Error(`Question ${id} has no matching rows in SQL_TEST_CASES.`);
+          const q=rowToImportQuestion({...row,type:"sql_query",publictestsjson:JSON.stringify(publicTests),hiddentestsjson:JSON.stringify(hiddenTests)});
+          q.questionKey=id;parsed.push(q);
+        }
+      } else {
+        for(const sheetName of wb.SheetNames){
+          if(["INSTRUCTIONS","SQL_TEST_CASES"].includes(sheetName))continue;
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{defval:""});
+          for(const row of rows)parsed.push(rowToImportQuestion(normalizeRow(row)));
+        }
+      }
     }
     if(!parsed.length)throw new Error("No questions found in this file.");
     if(importTarget==="special"&&parsed.some(q=>!["coding","sql_query"].includes(q.type)))throw new Error("Special Section accepts CODING or SQL_QUERY rows. Use the Special Section Excel Template.");
     if(importTarget==="learning-concepts"&&parsed.some(q=>q.type!=="concept"))throw new Error("Learning Concepts import accepts CONCEPT rows only. Use the Concept Excel Template.");
     if(importTarget==="learning-mcq"&&parsed.some(q=>q.type!=="mcq"))throw new Error("Learning MCQ import accepts MCQ questions only. Use the MCQ Excel Template.");
-    if(importTarget==="learning-coding"&&parsed.some(q=>q.type!=="coding"))throw new Error("Learning Coding import accepts coding questions only. Use the Coding Excel Template.");
+    if(importTarget==="learning-coding" && String(activeLevel?.subject||"Python").toLowerCase()==="sql" && parsed.some(q=>q.type!=="sql_query"))throw new Error("This is an SQL level. Import SQL_QUERY rows using the SQL Query Template.");
+    if(importTarget==="learning-coding" && String(activeLevel?.subject||"Python").toLowerCase()!=="sql" && parsed.some(q=>q.type!=="coding"))throw new Error("This is a Python level. Import CODING rows using the Python Excel Template.");
     if(importTarget.startsWith("learning-")&&!activeLevel)throw new Error("Open a learning level before importing questions.");
     if(importTarget==="exam") {
       if(!activeExamForQuestions)throw new Error("Open an exam and click Manage Questions before importing.");
@@ -2613,7 +2709,7 @@ document.getElementById("confirmQuestionImportBtn")?.addEventListener("click",as
         else if(importTarget==="special") await createSpecialQuestion({...q,published:q.published!==false,order:specialQuestions.length+imported,company:q.company||"Other",subject:q.subject||"Python",language:q.language||"python"});
         else if(importTarget==="learning-concepts") await createConcept({levelId:activeLevel.id,title:q.title,content:q.content,order:Number.isFinite(q.order)?q.order:((levelConcepts?.length||0)+imported)});
         else if(importTarget==="learning-mcq") await createMcqQuestion({levelId:activeLevel.id,questionText:q.questionText,options:q.options,correctOptionIndex:q.correctOptionIndex,marks:q.marks,order:(levelMcqQuestions?.length||0)+imported});
-        else if(importTarget==="learning-coding") await createLearningCodingQuestion({levelId:activeLevel.id,language:"python",title:q.title,description:q.description,inputDescription:q.inputDescription,outputDescription:q.outputDescription,constraints:q.constraints||"",marks:q.marks,timeLimit:q.timeLimit||5,order:(levelCodingQuestions?.length||0)+imported,starterCode:q.starterCode,examples:q.examples||[],visibleTestCases:q.visibleTestCases||[],hiddenTestCases:q.hiddenTestCases||[]});
+        else if(importTarget==="learning-coding") await createLearningCodingQuestion({levelId:activeLevel.id,subject:activeLevel.subject||"Python",language:q.language||"python",title:q.title,description:q.description,inputDescription:q.inputDescription,outputDescription:q.outputDescription,constraints:q.constraints||"",schemaSql:q.schemaSql||"",expectedOutput:q.expectedOutput||"",marks:q.marks,timeLimit:q.timeLimit||5,order:(levelCodingQuestions?.length||0)+imported,starterCode:q.starterCode,starterQuery:q.starterQuery||"",examples:q.examples||[],visibleTestCases:q.visibleTestCases||[],hiddenTestCases:q.hiddenTestCases||[]});
         imported++;
       } catch(err){errors.push(`Question ${i+1}: ${err.message||"save failed"}`);}
     }

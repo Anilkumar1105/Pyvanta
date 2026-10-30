@@ -288,6 +288,7 @@ async function executeSqlQuestion(q, queryText, testCases) {
     try {
       db=new SQL.Database();
       db.exec(q.schemaSql || "");
+      if(testCases[i].setupSql) db.exec(testCases[i].setupSql);
       const output=db.exec(queryText);
       const rows=output.length ? output.flatMap(t=>t.values.map(values=>Object.fromEntries(t.columns.map((c,j)=>[c,values[j]])))) : [];
       const expectedRaw=testCases[i].expectedOutput || q.expectedOutput || "[]";

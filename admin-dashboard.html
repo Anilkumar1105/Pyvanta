@@ -404,7 +404,8 @@ href="./favicon.svg">
             <div class="card-header d-flex justify-content-between align-items-center">
               <span class="fw-semibold"><i class="bi bi-code-slash me-1"></i>Coding Questions</span>
               <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-outline-primary btn-sm" id="downloadLearningCodingTemplateBtn"><i class="bi bi-download me-1"></i>Excel Template</button>
+                <button class="btn btn-outline-primary btn-sm" id="downloadLearningCodingTemplateBtn"><i class="bi bi-download me-1"></i>Python Excel Template</button>
+                <button class="btn btn-outline-info btn-sm" id="downloadLearningSqlTemplateBtn"><i class="bi bi-database me-1"></i>SQL Query Template</button>
                 <button class="btn btn-outline-secondary btn-sm" id="importLearningCodingBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Coding</button>
                 <button class="btn btn-outline-primary btn-sm" id="importCodeforcesBtn"><i class="bi bi-cloud-download me-1"></i>Import from Codeforces</button>
                 <button class="btn btn-brand btn-sm" id="addLearningCodingBtn"><i class="bi bi-plus-lg me-1"></i>Add Question</button>
@@ -679,7 +680,8 @@ href="./favicon.svg">
             <div class="col-md-8">
               <div class="mb-3">
                 <label class="form-label">Subject / Language</label>
-                <select class="form-select" id="spSubjectInput"><option value="Python">Python</option><option value="SQL">SQL</option></select>
+                <div class="form-control bg-body-secondary" id="lcSubjectBadge" aria-live="polite">Python</div>
+                <div class="form-text">This follows the subject selected when the learning level was created.</div>
               </div>
               <div class="mb-3">
                 <label class="form-label">Question Title</label>
@@ -814,6 +816,20 @@ href="./favicon.svg">
         </div>
         <div class="modal-body">
           <div id="levelFormError" class="alert alert-danger py-2 d-none small"></div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" for="levelSubjectInput">Subject / Language</label>
+              <select class="form-select" id="levelSubjectInput" required>
+                <option value="Python">🐍 Python</option>
+                <option value="SQL">🗄️ SQL</option>
+              </select>
+              <div class="form-text">Choose which learning path this module belongs to.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="levelPhaseInput">Learning phase (optional)</label>
+              <input type="text" class="form-control" id="levelPhaseInput" placeholder="e.g. Python Fundamentals / Database Fundamentals" />
+            </div>
+          </div>
           <div class="mb-3">
             <label class="form-label">Title</label>
             <input type="text" class="form-control" id="levelTitleInput" placeholder="e.g. Python Basics" required />
@@ -857,10 +873,6 @@ href="./favicon.svg">
         </div>
         <div class="modal-body">
           <div id="conceptFormError" class="alert alert-danger py-2 d-none small"></div>
-          <div class="row g-2 mb-3">
-            <div class="col-md-6"><label class="form-label" for="levelSubjectInput">Subject</label><select class="form-select" id="levelSubjectInput" required><option value="Python">Python</option><option value="SQL">SQL</option></select></div>
-            <div class="col-md-6"><label class="form-label" for="levelPhaseInput">Learning phase (optional)</label><input type="text" class="form-control" id="levelPhaseInput" placeholder="e.g. Python Fundamentals" /></div>
-          </div>
           <div class="mb-3">
             <label class="form-label">Title</label>
             <input type="text" class="form-control" id="conceptTitleInput" placeholder="e.g. Variables" required />
@@ -985,7 +997,7 @@ href="./favicon.svg">
             <div class="col-md-8">
               <div class="mb-3">
                 <label class="form-label">Subject / Language</label>
-                <select class="form-select" id="spSubjectInput"><option value="Python">Python</option><option value="SQL">SQL</option></select>
+                
               </div>
               <div class="mb-3">
                 <label class="form-label">Question Title</label>
@@ -1021,8 +1033,13 @@ href="./favicon.svg">
               </div>
             </div>
           </div>
+          <div class="mb-3" id="lcSqlSchemaWrap" hidden>
+            <label class="form-label">SQLite Schema / Table Setup SQL</label>
+            <textarea class="form-control mono" id="lcSchemaSqlInput" rows="6" placeholder="CREATE TABLE ...;\nINSERT INTO ...;"></textarea>
+            <div class="form-text">Create every required table and insert sample rows here. This setup is rebuilt before each test case.</div>
+          </div>
           <div class="mb-3">
-            <label class="form-label">Starter Code (Python)</label>
+            <label class="form-label" id="lcStarterLabel">Starter Code (Python)</label>
             <textarea class="form-control mono" id="lcStarterInput" rows="4"></textarea>
           </div>
 
