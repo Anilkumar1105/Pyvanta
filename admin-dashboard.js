@@ -2461,22 +2461,34 @@ let parsedImportQuestions = [];
 const IMPORT_FIELDS = ["type","questionText","options","correctAnswer","marks","title","description","inputDescription","outputDescription","constraints","difficulty","timeLimit","memoryLimit","starterCode","examplesJson","publicTestsJson","hiddenTestsJson","company","published"];
 function downloadConceptTemplate() {
   if (!window.XLSX) { alert("Excel library did not load. Refresh the page and try again."); return; }
-  const headers = ["Type", "Title", "ContentMarkdown", "TableMarkdown", "Order"];
-  const sample = ["CONCEPT", "Database vs Spreadsheet", "A database manages related data with structured rules. Use the table below to compare both approaches.", "| Feature | Database | Spreadsheet |\\n|---|---|---|\\n| Data size | Large datasets | Small datasets |\\n| Multi-user access | Strong support | Limited collaboration |\\n| Relationships | Tables and keys | Mostly separate sheets |", 1];
+  const headers = ["Type","Subject","Title","ContentMarkdown","TableMarkdown","VisualizationBlocksJSON","Order"];
+  const sampleVisuals = [
+    {type:"bar",title:"Marks by student",description:"Compare student marks.",data:{labels:["Anil","Ravi","Sita","Kiran"],datasets:[{label:"Marks",data:[85,72,91,66]}]},options:{yMin:0,yMax:100,yLabel:"Marks"}},
+    {type:"pie",title:"Attendance breakdown",description:"Illustrative attendance proportions.",data:{labels:["Present","Absent","Late"],datasets:[{label:"Students",data:[32,5,3]}]}}
+  ];
+  const sample = ["CONCEPT","Python","Understanding Lists","## What is a list?\\nA list stores multiple values in one variable. Lists are ordered and mutable.\\n\\n### Real-world example\\nA teacher stores student marks in a list and calculates the average.","| Index | 0 | 1 | 2 |\\n|---|---:|---:|---:|\\n| Mark | 78 | 85 | 90 |",JSON.stringify(sampleVisuals),1];
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
-  ws["!cols"] = [{wch:16},{wch:32},{wch:72},{wch:72},{wch:12}];
-  XLSX.utils.book_append_sheet(wb, ws, "Concepts");
+  const ws = XLSX.utils.aoa_to_sheet([headers,sample]);
+  ws["!cols"]=[{wch:14},{wch:14},{wch:34},{wch:70},{wch:60},{wch:90},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,"Concepts");
   const guide = XLSX.utils.aoa_to_sheet([
     ["COLUMN","WHAT TO ENTER"],
-    ["ContentMarkdown","Concept explanation. Markdown headings, lists, code blocks and links are supported."],
-    ["TableMarkdown","Optional Markdown table. Use | between columns and a separator row such as |---|---|."],
-    ["Order","Display order within the selected learning level."],
-    ["Type","Use CONCEPT for every concept row."]
+    ["Type","Required. Use CONCEPT for every lesson row."],
+    ["Subject","Required for admin filtering. Use Python or SQL."],
+    ["Title","Short lesson heading."],
+    ["ContentMarkdown","Detailed explanation, examples, lists and fenced code blocks."],
+    ["TableMarkdown","Optional Markdown reference table. Leave blank if not needed. Use actual line breaks, not visible backslash-n text."],
+    ["VisualizationBlocksJSON","Optional JSON array. Use [] when no visual is needed. Add one or more visual blocks."],
+    ["Order","Numeric display order within the module."],
+    ["Supported visual types","bar, line, pie, table, flow. Bar compares categories; line shows ordered trends; pie shows parts of a whole; table shows exact values; flow explains steps."],
+    ["Bar / line / pie JSON",'{"type":"bar","title":"Marks by student","description":"Compare marks","data":{"labels":["Anil","Ravi"],"datasets":[{"label":"Marks","data":[85,72]}]},"options":{"yMin":0,"yMax":100,"yLabel":"Marks"}}'],
+    ["Table JSON",'{"type":"table","title":"Query result","data":{"columns":["Name","Marks"],"rows":[["Anil",85],["Sita",91]]}}'],
+    ["Flow JSON",'{"type":"flow","title":"Steps","data":{"steps":["Read input","Process values","Display output"]}}'],
+    ["Best practice","Use visuals only when they improve understanding. Keep chart labels short, use numeric values, and avoid pie charts with many categories."]
   ]);
-  guide["!cols"]=[{wch:24},{wch:100}];
+  guide["!cols"]=[{wch:28},{wch:115}];
   XLSX.utils.book_append_sheet(wb,guide,"Instructions");
-  XLSX.writeFile(wb, "learning-concepts-template.xlsx");
+  XLSX.writeFile(wb,"pyvanta-learning-concepts-visualization-template.xlsx");
 }
 document.getElementById("downloadConceptTemplateBtn")?.addEventListener("click", downloadConceptTemplate);
 document.getElementById("importLearningConceptsBtn")?.addEventListener("click", () => openQuestionImport("learning-concepts"));
@@ -2568,8 +2580,19 @@ function rowToImportQuestion(row) {
     const tableMarkdown = String(get("tablemarkdown", "markdownTable", "table") || "").trim();
     if (tableMarkdown) content = `${content.trim()}\n\n## Reference Table\n\n${tableMarkdown}`;
     const order = Number(get("order") || 0);
+    const subject = cleanCell(get("subject")).toLowerCase();
+    if (subject && !["python","sql"].includes(subject)) throw new Error(`Concept Subject must be Python or SQL, received "${subject}".`);
+    let visualizationBlocks = parseJsonCell(get("visualizationblocksjson","visualizationsjson","visualizations"), []);
+    if (!Array.isArray(visualizationBlocks)) throw new Error(`Concept "${title}" VisualizationBlocksJSON must be a JSON array.`);
+    const allowedVisualTypes = ["bar","line","pie","table","flow"];
+    visualizationBlocks.forEach((block,i) => {
+      if (!block || !allowedVisualTypes.includes(String(block.type||"").toLowerCase())) {
+        throw new Error(`Concept "${title}" visualization ${i+1}: type must be bar, line, pie, table or flow.`);
+      }
+      block.type = String(block.type).toLowerCase();
+    });
     if (!title || !content.trim()) throw new Error("Concept needs Title and Content.");
-    return {type:"concept", title, content, order:Number.isFinite(order) ? order : 0};
+    return {type:"concept", title, content, subject:subject ? subject[0].toUpperCase()+subject.slice(1) : "", visualizationBlocks, order:Number.isFinite(order) ? order : 0};
   }
   const marks=Number(get("marks")||1);
   if(!Number.isFinite(marks)||marks<=0) throw new Error("Marks must be a positive number.");
@@ -2725,7 +2748,12 @@ document.getElementById("confirmQuestionImportBtn")?.addEventListener("click",as
       try {
         if(importTarget==="exam") await addQuestion({...q,examId:activeExamForQuestions.id,published:q.published!==false,order:questions.length+imported});
         else if(importTarget==="special") await createSpecialQuestion({...q,published:q.published!==false,order:specialQuestions.length+imported,company:q.company||"Other",subject:q.subject||"Python",language:q.language||"python"});
-        else if(importTarget==="learning-concepts") await createConcept({levelId:activeLevel.id,title:q.title,content:q.content,order:Number.isFinite(q.order)?q.order:((levelConcepts?.length||0)+imported)});
+        else if(importTarget==="learning-concepts") {
+          if (q.subject && String(q.subject).toLowerCase() !== String(activeLevel.subject || "Python").toLowerCase()) {
+            throw new Error(`Concept "${q.title}" is for ${q.subject}, but the opened module is ${activeLevel.subject || "Python"}.`);
+          }
+          await createConcept({levelId:activeLevel.id,title:q.title,content:q.content,subject:activeLevel.subject||q.subject||"Python",visualizationBlocks:q.visualizationBlocks||[],order:Number.isFinite(q.order)?q.order:((levelConcepts?.length||0)+imported)});
+        }
         else if(importTarget==="learning-mcq") await createMcqQuestion({levelId:activeLevel.id,questionText:q.questionText,options:q.options,correctOptionIndex:q.correctOptionIndex,marks:q.marks,order:(levelMcqQuestions?.length||0)+imported});
         else if(importTarget==="learning-coding") await createLearningCodingQuestion({levelId:activeLevel.id,subject:activeLevel.subject||"Python",language:q.language||"python",title:q.title,description:q.description,inputDescription:q.inputDescription,outputDescription:q.outputDescription,constraints:q.constraints||"",schemaSql:q.schemaSql||"",expectedOutput:q.expectedOutput||"",marks:q.marks,timeLimit:q.timeLimit||5,order:(levelCodingQuestions?.length||0)+imported,starterCode:q.starterCode,starterQuery:q.starterQuery||"",examples:q.examples||[],visibleTestCases:q.visibleTestCases||[],hiddenTestCases:q.hiddenTestCases||[]});
         imported++;

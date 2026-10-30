@@ -134,7 +134,9 @@ function escapeHtml(str) {
 
 // Turn plain-text lesson content into readable, safely escaped visual sections.
 function formatConceptContent(rawContent) {
-  const raw = String(rawContent ?? "");
+  // Excel/imported lessons may contain escaped newline text (\\n).
+  // Convert it to real line breaks before Markdown parsing so tables render.
+  const raw = String(rawContent ?? "").replace(/\\n/g, "\n").replace(/\\r/g, "\r");
   if (window.marked?.parse && window.DOMPurify?.sanitize) {
     const rendered = window.marked.parse(raw, { gfm: true, breaks: true });
     return window.DOMPurify.sanitize(rendered, {
@@ -170,6 +172,54 @@ function markCodingQuestionCompleted(section, questionId) {
   } catch (err) { console.warn("Could not save question completion status", err); }
 }
 
+
+function renderConceptVisualizations(blocks) {
+  if (!Array.isArray(blocks) || !blocks.length) return "";
+  return `<section class="concept-visualizations mt-4 d-grid gap-3" aria-label="Concept visualizations">${blocks.map((b,i)=>renderConceptVisualization(b,i)).join("")}</section>`;
+}
+function renderConceptVisualization(block,index) {
+  const esc = (v) => escapeHtml(String(v ?? ""));
+  const title = esc(block.title || `Visualization ${index+1}`);
+  const desc = block.description ? `<p class="small text-secondary mb-3">${esc(block.description)}</p>` : "";
+  const data = block.data || {};
+  if (block.type === "table") {
+    const cols = Array.isArray(data.columns) ? data.columns : [];
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    return `<div class="concept-viz-card"><h5>${title}</h5>${desc}<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${(Array.isArray(r)?r:[]).map(v=>`<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  }
+  if (block.type === "flow") {
+    const steps = Array.isArray(data.steps) ? data.steps : [];
+    return `<div class="concept-viz-card"><h5>${title}</h5>${desc}<div class="concept-flow">${steps.map((v,i)=>`<div class="concept-flow-step"><span>${i+1}</span>${esc(v)}</div>${i<steps.length-1?'<div class="concept-flow-arrow" aria-hidden="true">↓</div>':""}`).join("")}</div></div>`;
+  }
+  const labels = Array.isArray(data.labels) ? data.labels : [];
+  const series = Array.isArray(data.datasets) ? data.datasets : [];
+  if (!labels.length || !series.length) return `<div class="concept-viz-card"><h5>${title}</h5>${desc}<p class="small text-warning mb-0">Visualization data is incomplete.</p></div>`;
+  if (block.type === "pie") {
+    const vals = (series[0].data || []).map(v=>Math.max(0,Number(v)||0));
+    const total = vals.reduce((a,v)=>a+v,0) || 1;
+    let angle = 0;
+    const colors = ["#8b5cf6","#22d3ee","#34d399","#f59e0b","#f472b6","#60a5fa","#a3e635"];
+    const stops = vals.map((v,i)=>{const from=angle;angle+=v/total*360;return `${colors[i%colors.length]} ${from}deg ${angle}deg`;});
+    return `<div class="concept-viz-card"><h5>${title}</h5>${desc}<div class="concept-pie-layout"><div class="concept-pie" style="background:conic-gradient(${stops.join(",")})" role="img" aria-label="${esc(title)}"></div><ul class="list-unstyled small mb-0">${labels.map((l,i)=>`<li class="mb-1"><span class="concept-legend-dot" style="background:${colors[i%colors.length]}"></span>${esc(l)}: ${vals[i]??0}</li>`).join("")}</ul></div></div>`;
+  }
+  const values = series.map(ds=>({label:ds.label||"Value",data:Array.isArray(ds.data)?ds.data:[]}));
+  const all = values.flatMap(v=>v.data.map(n=>Number(n)||0));
+  const max = Math.max(1,...all);
+  const min = block.type==="line" ? Math.min(0,...all) : 0;
+  const chartHeight=190, chartWidth=640, left=42, right=12, top=12, bottom=34;
+  const xStep=labels.length>1?(chartWidth-left-right)/(labels.length-1):0;
+  const y=(v)=>top+(chartHeight-top-bottom)*(1-(v-min)/(max-min||1));
+  const x=(i)=>left+i*xStep;
+  let svg="";
+  if(block.type==="line") {
+    svg=`<svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${title}" class="concept-chart-svg">${values.map((ds,si)=>`<polyline fill="none" stroke="${["#22d3ee","#a78bfa","#34d399"][si%3]}" stroke-width="3" points="${ds.data.map((v,i)=>`${x(i)},${y(Number(v)||0)}`).join(" ")}"/>${ds.data.map((v,i)=>`<circle cx="${x(i)}" cy="${y(Number(v)||0)}" r="4" fill="${["#22d3ee","#a78bfa","#34d399"][si%3]}"/>`).join("")}`).join("")}${labels.map((l,i)=>`<text x="${x(i)}" y="184" text-anchor="middle">${esc(l).slice(0,12)}</text>`).join("")}</svg>`;
+  } else {
+    const groupW=(chartWidth-left-right)/Math.max(labels.length,1), barW=Math.min(38,groupW/(values.length+1));
+    svg=`<svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${title}" class="concept-chart-svg">${values.map((ds,si)=>ds.data.map((v,i)=>{const val=Number(v)||0;const h=Math.max(0,(val-min)/(max-min||1))*(chartHeight-top-bottom);return `<rect x="${left+i*groupW+groupW/2+(si-(values.length-1)/2)*barW-barW/2}" y="${chartHeight-bottom-h}" width="${barW-3}" height="${h}" rx="4" fill="${["#8b5cf6","#22d3ee","#34d399"][si%3]}"><title>${esc(ds.label)}: ${val}</title></rect>`}).join("")).join("")}${labels.map((l,i)=>`<text x="${left+i*groupW+groupW/2}" y="184" text-anchor="middle">${esc(l).slice(0,12)}</text>`).join("")}</svg>`;
+  }
+  return `<div class="concept-viz-card"><h5>${title}</h5>${desc}<div class="concept-chart-wrap">${svg}</div><div class="small d-flex flex-wrap gap-3 mt-2">${values.map((ds,i)=>`<span><span class="concept-legend-dot" style="background:${["#8b5cf6","#22d3ee","#34d399"][i%3]}"></span>${esc(ds.label)}</span>`).join("")}</div></div>`;
+}
+
 /* ---------- Concepts ---------- */
 function renderConcept(content) {
   const concept = concepts.find((c) => c.id === view.id);
@@ -188,6 +238,7 @@ function renderConcept(content) {
       ${status === "completed" ? '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Completed</span>' : ""}
     </div>
     <div class="concept-content mb-4">${formatConceptContent(concept.content)}</div>
+    ${renderConceptVisualizations(concept.visualizationBlocks || [])}
     <div id="conceptActionArea"></div>
   `;
 
