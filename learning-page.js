@@ -134,17 +134,23 @@ function escapeHtml(str) {
 
 // Turn plain-text lesson content into readable, safely escaped visual sections.
 function formatConceptContent(rawContent) {
-  return String(rawContent ?? "").split(/\r?\n/).map((rawLine) => {
-    const line = rawLine.trim();
-    if (!line) return '<div class="concept-spacer" aria-hidden="true"></div>';
-    const safe = escapeHtml(line);
-    const isBullet = /^(?:[•*]|- )\s*/.test(line);
-    if (isBullet) {
-      return `<div class="concept-bullet"><span class="concept-bullet-dot" aria-hidden="true">✦</span><span>${safe.replace(/^(?:[•*]|- )\s*/, "")}</span></div>`;
-    }
-    const isHeading = line.length <= 72 && (line === line.toUpperCase() || /:$/.test(line));
-    if (isHeading) return `<h6 class="concept-section-heading">${safe}</h6>`;
-    return `<p class="concept-paragraph">${safe}</p>`;
+  const raw = String(rawContent ?? "");
+  if (window.marked?.parse && window.DOMPurify?.sanitize) {
+    const rendered = window.marked.parse(raw, { gfm: true, breaks: true });
+    return window.DOMPurify.sanitize(rendered, {
+      ALLOWED_TAGS: ["h1","h2","h3","h4","h5","h6","p","strong","em","del","ul","ol","li","blockquote","pre","code","table","thead","tbody","tr","th","td","hr","a","br"],
+      ALLOWED_ATTR: ["href","title","target","rel"]
+    });
+  }
+  // Safe fallback: escape content and preserve headings, lists, emphasis and code.
+  return raw.split(/\r?\n/).map(line => {
+    const s=escapeHtml(line.trim());
+    if(!s) return '<div class="concept-spacer"></div>';
+    if(/^###\s+/.test(s)) return `<h6>${s.replace(/^###\s+/,"")}</h6>`;
+    if(/^##\s+/.test(s)) return `<h5>${s.replace(/^##\s+/,"")}</h5>`;
+    if(/^#\s+/.test(s)) return `<h4>${s.replace(/^#\s+/,"")}</h4>`;
+    if(/^\s*[-*]\s+/.test(s)) return `<div class="concept-bullet">• ${s.replace(/^\s*[-*]\s+/,"")}</div>`;
+    return `<p>${s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/`([^`]+)`/g,"<code>$1</code>")}</p>`;
   }).join("");
 }
 

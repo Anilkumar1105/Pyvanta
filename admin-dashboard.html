@@ -328,14 +328,15 @@ href="./favicon.svg">
           <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span class="fw-semibold"><i class="bi bi-play-btn me-2"></i>Code Visualizations Lab</span>
             <div class="d-flex gap-2 flex-wrap">
-              <button class="btn btn-outline-primary btn-sm" id="downloadVisualizationTemplateBtn"><i class="bi bi-download me-1"></i>Download Excel Template</button>
+              <button class="btn btn-outline-primary btn-sm" id="downloadVisualizationTemplateBtn"><i class="bi bi-download me-1"></i>Python Excel</button>
+              <button class="btn btn-outline-info btn-sm" id="downloadSqlVisualizationTemplateBtn"><i class="bi bi-database me-1"></i>SQL Excel</button>
               <button class="btn btn-outline-success btn-sm" id="downloadVisualizationProgramsBtn"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Download Programs</button>
               <button class="btn btn-brand btn-sm" id="importVisualizationProgramsBtn"><i class="bi bi-file-earmark-arrow-up me-1"></i>Import Programs</button>
               <input type="file" id="visualizationProgramsFile" accept=".xlsx,.xls" class="d-none" />
             </div>
           </div>
           <div class="card-body">
-            <p class="text-muted small mb-2">Import visualization programs only. This does not import or change MCQs, coding exam questions, marks, or learning progress. Students see published programs inside Learning.</p>
+            <p class="text-muted small mb-2">Import Python or SQL visualization programs. Use the matching subject template; both subjects appear in the same student Visualization Lab using its subject filter.</p>
             <div id="visualizationImportStatus" class="small mb-2" role="status"></div>
             <div class="d-flex flex-wrap align-items-center gap-2 mb-3 p-2 border rounded-3 bg-light">
               <div class="form-check mb-0">

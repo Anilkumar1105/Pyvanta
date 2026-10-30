@@ -712,3 +712,19 @@ button:disabled { cursor:wait; opacity:.7; }
 #viewResultModal .modal-body, #codeSubmissionsModal .modal-body { color:var(--pv-text); }
 #viewResultModal .text-muted, #codeSubmissionsModal .text-muted { color:var(--pv-muted)!important; }
 #historyTableBody td { vertical-align:middle; }
+
+/* Learning content rich Markdown presentation */
+.concept-content{line-height:1.75;color:var(--bs-body-color);overflow-wrap:anywhere}
+.concept-content h1,.concept-content h2,.concept-content h3,.concept-content h4,.concept-content h5,.concept-content h6{color:var(--bs-emphasis-color);font-weight:750;margin:1.25rem 0 .55rem}
+.concept-content p{margin:.45rem 0 .85rem}
+.concept-content ul,.concept-content ol{padding-left:1.35rem;margin:.5rem 0 1rem}
+.concept-content li{margin:.28rem 0}
+.concept-content blockquote{border-left:3px solid #8B5CF6;padding:.65rem 1rem;margin:1rem 0;background:rgba(139,92,246,.08);border-radius:0 10px 10px 0}
+.concept-content pre{background:#0b0d12;color:#e5e7eb;padding:1rem;border-radius:12px;overflow:auto}
+.concept-content code{background:rgba(139,92,246,.13);padding:.12rem .32rem;border-radius:5px}
+.concept-content pre code{background:transparent;padding:0}
+.concept-content table{width:100%;border-collapse:collapse;margin:1rem 0;display:block;overflow-x:auto}
+.concept-content th,.concept-content td{border:1px solid var(--bs-border-color);padding:.55rem .7rem;text-align:left;min-width:90px}
+.concept-content th{background:rgba(139,92,246,.12)}
+.cv-toolbar #cvSubject{max-width:155px;flex:0 0 155px}
+@media(max-width:560px){.cv-toolbar #cvSubject{max-width:none;width:100%;flex:1}}

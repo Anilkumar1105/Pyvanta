@@ -9,7 +9,8 @@ let adminReady = false;
 requireRole("admin", async () => { if (adminReady) return; adminReady = true; bind(); await loadPrograms(); });
 
 function bind() {
-  $("downloadVisualizationTemplateBtn")?.addEventListener("click", downloadTemplate);
+  $("downloadVisualizationTemplateBtn")?.addEventListener("click", () => downloadTemplate("Python"));
+  $("downloadSqlVisualizationTemplateBtn")?.addEventListener("click", () => downloadTemplate("SQL"));
   $("downloadVisualizationProgramsBtn")?.addEventListener("click", downloadPrograms);
   $("importVisualizationProgramsBtn")?.addEventListener("click", () => $("visualizationProgramsFile").click());
   $("visualizationProgramsFile")?.addEventListener("change", importFile);
@@ -20,21 +21,21 @@ function bind() {
   $("deleteSelectedVisualizationProgramsBtn")?.addEventListener("click", deleteSelectedPrograms);
 }
 function status(message, kind="info") { const el=$("visualizationImportStatus"); if(!el)return; el.className=`small mb-2 text-${kind}`; el.textContent=message; }
-function downloadTemplate() {
+function downloadTemplate(subject = "Python") {
   if (!window.XLSX) return status("Excel library did not load. Refresh the admin dashboard and try again.","danger");
-  const headers=["title","topic","difficulty","description","code","type","exampleInput","expectedOutput","visualizationSteps","mediaUrl","published"];
+  const headers=["subject","title","topic","difficulty","description","code","type","exampleInput","expectedOutput","visualizationSteps","mediaUrl","published"];
   const sample=["Factorial","Loops","Beginner","Calculate factorial using a loop.","n = 5\nfact = 1\nfor i in range(1, n + 1):\n    fact *= i\nprint(fact)","auto","5","120",JSON.stringify([{note:"Initialize fact = 1.",variables:{n:5,fact:1}},{note:"Iteration 1: fact = fact × 1 = 1.",variables:{n:5,i:1,fact:1}},{note:"Final result is 120.",variables:{n:5,fact:120},output:"120",visualization:{kind:"result",value:120}}]),"","TRUE"];
   const wb=XLSX.utils.book_new(); const ws=XLSX.utils.aoa_to_sheet([headers,sample]);
-  ws["!cols"]=[{wch:24},{wch:22},{wch:16},{wch:50},{wch:60},{wch:20},{wch:18},{wch:20},{wch:70},{wch:42},{wch:12}];
+  ws["!cols"]=[{wch:14},{wch:24},{wch:22},{wch:16},{wch:50},{wch:60},{wch:20},{wch:18},{wch:20},{wch:70},{wch:42},{wch:12}];
   XLSX.utils.book_append_sheet(wb,ws,"Visualization Programs");
-  XLSX.writeFile(wb,"code-visualization-programs-template.xlsx");
+  XLSX.writeFile(wb,`pyvanta-${subject.toLowerCase()}-visualization-template.xlsx`);
 }
 async function downloadPrograms() {
   if (!window.XLSX) return status("Excel library did not load. Refresh the admin dashboard and try again.", "danger");
   try {
     status("Preparing visualization programs export…");
     const snap = await getDocs(query(collectionRef, orderBy("createdAt", "desc")));
-    const headers = ["title","topic","difficulty","description","code","type","exampleInput","expectedOutput","visualizationSteps","mediaUrl","published"];
+    const headers = ["subject","title","topic","difficulty","description","code","type","exampleInput","expectedOutput","visualizationSteps","mediaUrl","published"];
     const rows = snap.docs.map(d => {
       const p = d.data();
       return headers.map(key => {
@@ -44,7 +45,7 @@ async function downloadPrograms() {
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws["!cols"] = [{wch:24},{wch:22},{wch:16},{wch:50},{wch:60},{wch:20},{wch:22},{wch:22},{wch:70},{wch:42},{wch:12}];
+    ws["!cols"] = [{wch:14},{wch:24},{wch:22},{wch:16},{wch:50},{wch:60},{wch:20},{wch:22},{wch:22},{wch:70},{wch:42},{wch:12}];
     XLSX.utils.book_append_sheet(wb, ws, "Visualization Programs");
     XLSX.writeFile(wb, "code-visualization-programs-export.xlsx");
     status(`Downloaded ${rows.length} visualization program(s).`, "success");
@@ -56,12 +57,12 @@ async function downloadPrograms() {
 function normalize(row){const out={};for(const [k,v] of Object.entries(row))out[String(k).toLowerCase().replace(/[^a-z0-9]/g,"")]=v;return out;}
 function boolValue(v){return v===true || ["true","yes","1","published","active"].includes(String(v??"").trim().toLowerCase());}
 async function importFile(event){const file=event.target.files?.[0];event.target.value="";if(!file)return;if(!window.XLSX)return status("Excel library did not load. Refresh the page.","danger");
-  try { status("Reading Excel file…"); const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});const rows=[];for(const sheet of wb.SheetNames){for(const raw of XLSX.utils.sheet_to_json(wb.Sheets[sheet],{defval:""})){const r=normalize(raw);if(!r.title)continue;const item={title:String(r.title).trim(),topic:String(r.topic||"Algorithms").trim(),difficulty:String(r.difficulty||"Beginner").trim(),description:String(r.description||"").trim(),code:String(r.code||"").trim(),type:String(r.type||r.visualizationtype||"auto").trim(),exampleInput:String(r.exampleinput||r.sampleinput||r.input||"").trim(),expectedOutput:String(r.expectedoutput||r.sampleoutput||r.output||"").trim(),visualizationSteps:String(r.visualizationsteps||r.steps||"").trim(),mediaUrl:String(r.mediaurl||"").trim(),published:boolValue(r.published),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(!item.title)continue;rows.push(item);}}
+  try { status("Reading Excel file…"); const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});const rows=[];for(const sheet of wb.SheetNames){for(const raw of XLSX.utils.sheet_to_json(wb.Sheets[sheet],{defval:""})){const r=normalize(raw);if(!r.title)continue;const item={subject:String(r.subject||"Python").trim().toUpperCase()==="SQL"?"SQL":"Python",title:String(r.title).trim(),topic:String(r.topic||"Algorithms").trim(),difficulty:String(r.difficulty||"Beginner").trim(),description:String(r.description||"").trim(),code:String(r.code||"").trim(),type:String(r.type||r.visualizationtype||"auto").trim(),exampleInput:String(r.exampleinput||r.sampleinput||r.input||"").trim(),expectedOutput:String(r.expectedoutput||r.sampleoutput||r.output||"").trim(),visualizationSteps:String(r.visualizationsteps||r.steps||"").trim(),mediaUrl:String(r.mediaurl||"").trim(),published:boolValue(r.published),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};if(!item.title)continue;rows.push(item);}}
     if(!rows.length)throw new Error("No valid program rows found. Include a title column and at least one program row.");
     if(rows.length>300)throw new Error("Import is limited to 300 programs per file. Split the workbook into smaller files.");
     // Skip programs that already exist by case-insensitive title + topic, and duplicate rows in this workbook.
     const existingSnap = await getDocs(collectionRef);
-    const keyOf = item => `${String(item.title || "").trim().toLowerCase()}::${String(item.topic || "").trim().toLowerCase()}`;
+    const keyOf = item => `${String(item.subject||"Python").toLowerCase()}::${String(item.title || "").trim().toLowerCase()}::${String(item.topic || "").trim().toLowerCase()}`;
     const existingKeys = new Set(existingSnap.docs.map(d => keyOf(d.data())));
     const workbookKeys = new Set();
     const uniqueRows = [];
@@ -77,7 +78,7 @@ async function importFile(event){const file=event.target.files?.[0];event.target
       await loadPrograms();
       return;
     }
-    const preview = uniqueRows.slice(0, 5).map(r => `${r.title} (${r.topic})`).join(" · ");
+    const preview = uniqueRows.slice(0, 5).map(r => `${r.subject}: ${r.title} (${r.topic})`).join(" · ");
     if (!confirm(`Import ${uniqueRows.length} new visualization program(s)?\n\n${preview}${uniqueRows.length > 5 ? " · …" : ""}\n\n${duplicateCount} duplicate row(s) will be skipped. Existing programs, MCQs, coding questions, marks, and learning progress will not be changed.`)) return;
     status(`Importing ${uniqueRows.length} new program(s)…`);
     let count = 0, failed = 0;
