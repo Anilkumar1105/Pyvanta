@@ -549,7 +549,9 @@ function renderCodingQuestion(content) {
         <div id="learningSubmissionHistory" class="mt-3"></div>
       </div>
       <div class="col-lg-7">
-        <textarea id="learningCodeEditor">${escapeHtml(q.starterCode || "")}</textarea>
+        <textarea id="learningCodeEditor">${escapeHtml(String(q.language || level.subject || "Python").toLowerCase() === "sql" ? "" : (q.starterCode || ""))}</textarea>
+        <button class="btn btn-sm btn-outline-info mt-2" id="learningViewSolutionBtn" type="button">View Solution</button>
+        <div id="learningSolutionPanel" class="mt-2 d-none"><div class="small text-secondary mb-1">Reference solution — viewing this does not award learning points.</div><pre class="bg-dark text-light rounded-3 p-3 mb-0" id="learningSolutionCode"></pre></div>
         <div class="d-flex align-items-center gap-2 mt-2">
           <button class="btn btn-outline-secondary btn-sm" id="learningRunBtn"><i class="bi bi-play-fill me-1"></i>${String(q.language||level.subject||"Python").toLowerCase()==="sql"?"Run Query":"Run Code"}</button>
           <button class="btn btn-brand btn-sm" id="learningSubmitBtn"><i class="bi bi-cloud-arrow-up me-1"></i>${String(q.language||level.subject||"Python").toLowerCase()==="sql"?"Submit Query":"Submit Code"}</button>
@@ -578,6 +580,13 @@ function renderCodingQuestion(content) {
   cmEditor.setSize("100%", "300px");
   blockPaste(cmEditor);
 
+  document.getElementById("learningViewSolutionBtn").addEventListener("click", () => {
+    const panel = document.getElementById("learningSolutionPanel");
+    const solution = String(q.solution || "").trim();
+    if (!solution) { panel.classList.remove("d-none"); document.getElementById("learningSolutionCode").textContent = "Solution is not available for this question yet."; return; }
+    panel.classList.toggle("d-none");
+    document.getElementById("learningSolutionCode").textContent = solution;
+  });
   document.getElementById("learningRunBtn").addEventListener("click", () => String(q.language || level.subject || "Python").toLowerCase() === "sql" ? runSqlVisible(q) : runVisible(q));
   document.getElementById("learningSubmitBtn").addEventListener("click", () => String(q.language || level.subject || "Python").toLowerCase() === "sql" ? submitSqlPractice(q) : submitPractice(q));
   renderLearningHistory(q.id);
