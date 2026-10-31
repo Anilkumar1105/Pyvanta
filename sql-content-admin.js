@@ -19,7 +19,7 @@ const headers = {
   SQL_QUERIES:["id","title","prompt","starter","solution","topic","difficulty","tables","order","published"],
   SQL_SPECIAL:["id","title","prompt","starter","solution","topic","difficulty","tables","order","published"],
   SQL_VISUALIZATIONS:["id","title","query","stepsJson","explanation","topic","published"],
-  SQL_QUESTIONS:["QuestionID","Type","Title","Description","InputDescription","OutputDescription","SchemaSQL","StarterQuery","Difficulty","Marks","TimeLimit","Order","Published"],
+  SQL_QUESTIONS:["QuestionID","Type","Title","Description","InputDescription","OutputDescription","SchemaSQL","StarterQuery","ReferenceSolution","Difficulty","Marks","TimeLimit","Order","Published"],
   SQL_TEST_CASES:["QuestionID","Visibility","TestCaseName","ExpectedOutputJSON","SetupSQL"]
 };
 const norm = v => String(v ?? "").toLowerCase().replace(/[^a-z0-9]/g,"");
@@ -122,7 +122,7 @@ function parseWorkbook(wb){
       const r=clean(raw), id=String(val(r,"QuestionID","id")||`sql-question-${i+1}`), title=String(val(r,"Title","title"));
       const prompt=String(val(r,"Description","prompt","question")), schemaSql=String(val(r,"SchemaSQL","schemaSql"));
       if(!title||!prompt||!schemaSql) throw new Error(`SQL_QUESTIONS row ${i+2}: QuestionID, Title, Description and SchemaSQL are required.`);
-      pushSet("sqlChallenges",`sql-${slug(id)}`,{title,prompt,description:String(val(r,"InputDescription")||""),outputDescription:String(val(r,"OutputDescription")||""),schemaSql,starter:"",topic:"SQL Practice",difficulty:String(val(r,"Difficulty")||"Easy"),marks:Number(val(r,"Marks")||0),timeLimit:Number(val(r,"TimeLimit")||0),special:false,questionOnly:true,published:truth(val(r,"Published")),order:Number(val(r,"Order")||i+1),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      pushSet("sqlChallenges",`sql-${slug(id)}`,{title,prompt,description:String(val(r,"InputDescription")||""),outputDescription:String(val(r,"OutputDescription")||""),schemaSql,starter:"",solution:String(val(r,"ReferenceSolution","Solution","Answer")||""),topic:"SQL Practice",difficulty:String(val(r,"Difficulty")||"Easy"),marks:Number(val(r,"Marks")||0),timeLimit:Number(val(r,"TimeLimit")||0),special:false,questionOnly:true,published:truth(val(r,"Published")),order:Number(val(r,"Order")||i+1),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     });
   }
   // SQL visualization rows are stored in the shared visualization collection and tagged SQL.

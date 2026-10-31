@@ -2525,8 +2525,8 @@ document.getElementById("downloadLearningSqlTemplateBtn")?.addEventListener("cli
   if(!window.XLSX){alert("Excel library did not load. Refresh the page and try again.");return;}
   const wb=XLSX.utils.book_new();
   const questions=[
-    ["QuestionID","Type","Title","Description","InputDescription","OutputDescription","SchemaSQL","StarterQuery","Difficulty","Marks","TimeLimit","Order","Published"],
-    ["SQL001","SQL_QUERY","Top Scoring Students","Return student names and marks for students scoring above 80, sorted from highest to lowest.","A students table is created and populated by SchemaSQL.","Return columns: name, marks.","CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL, marks INTEGER NOT NULL);\nINSERT INTO students VALUES (1,'Anil',85),(2,'Ravi',65),(3,'Priya',92),(4,'Kiran',80);","SELECT name, marks\nFROM students\nWHERE marks > 80\nORDER BY marks DESC;","easy",10,5,1,true]
+    ["QuestionID","Type","Title","Description","InputDescription","OutputDescription","SchemaSQL","StarterQuery","ReferenceSolution","Difficulty","Marks","TimeLimit","Order","Published"],
+    ["SQL001","SQL_QUERY","Top Scoring Students","Return student names and marks for students scoring above 80, sorted from highest to lowest.","A students table is created and populated by SchemaSQL.","Return columns: name, marks.","CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL, marks INTEGER NOT NULL);\nINSERT INTO students VALUES (1,'Anil',85),(2,'Ravi',65),(3,'Priya',92),(4,'Kiran',80);","","SELECT name, marks\nFROM students\nWHERE marks > 80\nORDER BY marks DESC;","easy",10,5,1,true]
   ];
   const tests=[
     ["QuestionID","Visibility","TestCaseName","ExpectedOutputJSON","SetupSQL"],
@@ -2544,9 +2544,10 @@ document.getElementById("downloadLearningSqlTemplateBtn")?.addEventListener("cli
     ["2. Put CREATE TABLE and INSERT sample rows in SchemaSQL. Use semicolons between SQL statements."],
     ["3. Add one or more rows per QuestionID in SQL_TEST_CASES. Visibility must be PUBLIC or HIDDEN."],
     ["4. ExpectedOutputJSON must be a JSON array of objects. Object keys must match the result column names."],
-    ["5. Optional SetupSQL runs after SchemaSQL and before the student's query for that test only."],
-    ["6. Keep SQL identifiers and output column names consistent. SQLite syntax is supported."],
-    ["7. Select an SQL learning level before importing this workbook."]
+    ["5. Put the instructor answer in ReferenceSolution. Students see it only after choosing View Solution; viewing it must not award learning points."],
+    ["6. Optional SetupSQL runs after SchemaSQL and before the student's query for that test only."],
+    ["7. Keep SQL identifiers and output column names consistent. SQLite syntax is supported."],
+    ["8. Select an SQL learning level before importing this workbook."]
   ]);
   guide["!cols"]=[{wch:120}];
   XLSX.utils.book_append_sheet(wb,guide,"INSTRUCTIONS");
