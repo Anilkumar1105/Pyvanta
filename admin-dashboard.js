@@ -2321,7 +2321,9 @@ function openLearningCodingModal(question = null) {
   const isSqlLevel = String(activeLevel?.subject || "Python").toLowerCase() === "sql";
   document.getElementById("lcSubjectBadge").textContent = isSqlLevel ? "🗄️ SQL" : "🐍 Python";
   document.getElementById("lcSqlSchemaWrap").hidden = !isSqlLevel;
+  document.getElementById("lcSqlSolutionWrap").hidden = !isSqlLevel;
   document.getElementById("lcSchemaSqlInput").value = question?.schemaSql || "";
+  document.getElementById("lcReferenceSolutionInput").value = question?.solution || "";
   document.getElementById("lcStarterLabel").textContent = isSqlLevel ? "Starter Query (SQL)" : "Starter Code (Python)";
   document.getElementById("lcStarterInput").placeholder = isSqlLevel ? "SELECT ...;" : "def solve():";
   document.getElementById("lcStarterInput").value = question?.starterQuery || question?.starterCode || "";
@@ -2356,6 +2358,7 @@ document.getElementById("learningCodingForm").addEventListener("submit", async (
     starterCode: document.getElementById("lcStarterInput").value,
     starterQuery: String(activeLevel.subject || "Python").toLowerCase() === "sql" ? document.getElementById("lcStarterInput").value : "",
     schemaSql: document.getElementById("lcSchemaSqlInput").value,
+    solution: String(activeLevel.subject || "Python").toLowerCase() === "sql" ? document.getElementById("lcReferenceSolutionInput").value : "",
     examples: collectDynamicRows("lcExamplesWrap", false).filter((r) => r.input || r.output),
     visibleTestCases: collectDynamicRows("lcVisibleTestsWrap", true).filter((r) => r.input || r.expectedOutput),
     hiddenTestCases: collectDynamicRows("lcHiddenTestsWrap", true).filter((r) => r.input || r.expectedOutput)
@@ -2612,7 +2615,8 @@ function rowToImportQuestion(row) {
     const title=cleanCell(get("title","questiontitle"));
     const description=cleanCell(get("description","problemstatement","questiontext"));
     const schemaSql=String(get("schemasql","setupsql","database"));
-    const starterCode=String(get("starterquery","startercode","query")||"-- Write your SQL query here");
+    const starterCode=String(get("starterquery","startercode","query")||"");
+    const solution=String(get("referencesolution","solution","answer")||"");
     const difficulty=cleanCell(get("difficulty")).toLowerCase()||"medium";
     const publicRaw=get("publictestsjson","publictestcases");
     const hiddenRaw=get("hiddentestsjson","hiddentestcases");
@@ -2631,7 +2635,7 @@ function rowToImportQuestion(row) {
       try { const parsed=JSON.parse(test.expectedOutput); if(!Array.isArray(parsed)) throw new Error(); }
       catch { throw new Error(`SQL query "${title}" test case ${idx+1}: ExpectedOutputJSON must be a JSON array of rows.`); }
     }
-    return {type:"sql_query",subject:"SQL",language:"sql",title,description,inputDescription:cleanCell(get("inputdescription","input")),outputDescription:cleanCell(get("outputdescription","output")),schemaSql,starterCode,starterQuery:starterCode,expectedOutput:visibleTestCases[0]?.expectedOutput||hiddenTestCases[0]?.expectedOutput||"[]",visibleTestCases,hiddenTestCases,difficulty,marks,timeLimit:Number(get("timelimit")||5),order:Number(get("order")||0),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
+    return {type:"sql_query",subject:"SQL",language:"sql",title,description,inputDescription:cleanCell(get("inputdescription","input")),outputDescription:cleanCell(get("outputdescription","output")),schemaSql,starterCode,starterQuery:starterCode,solution,expectedOutput:visibleTestCases[0]?.expectedOutput||hiddenTestCases[0]?.expectedOutput||"[]",visibleTestCases,hiddenTestCases,difficulty,marks,timeLimit:Number(get("timelimit")||5),order:Number(get("order")||0),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
   }
   if(type==="coding"||type==="code") {
     const title=cleanCell(get("title","questiontitle"));
