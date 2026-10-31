@@ -1045,10 +1045,10 @@ href="./favicon.svg">
             <textarea class="form-control mono" id="lcSchemaSqlInput" rows="6" placeholder="CREATE TABLE ...;\nINSERT INTO ...;"></textarea>
             <div class="form-text">Create every required table and insert sample rows here. This setup is rebuilt before each test case.</div>
           </div>
-          <div class="mb-3" id="lcSqlSolutionWrap" hidden>
+          <div class="mb-3" id="lcReferenceSolutionWrap" hidden>
             <label class="form-label">Reference Solution (SQL)</label>
-            <textarea class="form-control mono" id="lcReferenceSolutionInput" rows="5" placeholder="Enter instructor reference SQL here. Students only see it after clicking View Solution."></textarea>
-            <div class="form-text">Viewing the reference solution must not award learning points.</div>
+            <textarea class="form-control mono" id="lcReferenceSolutionInput" rows="5" placeholder="Enter instructor reference SQL. Students only see it after clicking View Solution."></textarea>
+            <div class="form-text">Imported from the Excel ReferenceSolution column. Viewing it does not award learning points.</div>
           </div>
           <div class="mb-3">
             <label class="form-label" id="lcStarterLabel">Starter Code (Python)</label>

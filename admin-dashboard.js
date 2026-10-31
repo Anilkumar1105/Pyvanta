@@ -2321,7 +2321,7 @@ function openLearningCodingModal(question = null) {
   const isSqlLevel = String(activeLevel?.subject || "Python").toLowerCase() === "sql";
   document.getElementById("lcSubjectBadge").textContent = isSqlLevel ? "🗄️ SQL" : "🐍 Python";
   document.getElementById("lcSqlSchemaWrap").hidden = !isSqlLevel;
-  document.getElementById("lcSqlSolutionWrap").hidden = !isSqlLevel;
+  document.getElementById("lcReferenceSolutionWrap").hidden = !isSqlLevel;
   document.getElementById("lcSchemaSqlInput").value = question?.schemaSql || "";
   document.getElementById("lcReferenceSolutionInput").value = question?.solution || "";
   document.getElementById("lcStarterLabel").textContent = isSqlLevel ? "Starter Query (SQL)" : "Starter Code (Python)";
@@ -2358,7 +2358,7 @@ document.getElementById("learningCodingForm").addEventListener("submit", async (
     starterCode: document.getElementById("lcStarterInput").value,
     starterQuery: String(activeLevel.subject || "Python").toLowerCase() === "sql" ? document.getElementById("lcStarterInput").value : "",
     schemaSql: document.getElementById("lcSchemaSqlInput").value,
-    solution: String(activeLevel.subject || "Python").toLowerCase() === "sql" ? document.getElementById("lcReferenceSolutionInput").value : "",
+    solution: document.getElementById("lcReferenceSolutionInput").value.trim(),
     examples: collectDynamicRows("lcExamplesWrap", false).filter((r) => r.input || r.output),
     visibleTestCases: collectDynamicRows("lcVisibleTestsWrap", true).filter((r) => r.input || r.expectedOutput),
     hiddenTestCases: collectDynamicRows("lcHiddenTestsWrap", true).filter((r) => r.input || r.expectedOutput)
@@ -2615,14 +2615,14 @@ function rowToImportQuestion(row) {
     const title=cleanCell(get("title","questiontitle"));
     const description=cleanCell(get("description","problemstatement","questiontext"));
     const schemaSql=String(get("schemasql","setupsql","database"));
-    const starterCode=String(get("starterquery","startercode","query")||"");
-    const solution=String(get("referencesolution","solution","answer")||"");
+    const starterCode=String(get("starterquery","startercode","query")||"-- Write your SQL query here");
     const difficulty=cleanCell(get("difficulty")).toLowerCase()||"medium";
     const publicRaw=get("publictestsjson","publictestcases");
     const hiddenRaw=get("hiddentestsjson","hiddentestcases");
     let visibleTestCases=parseJsonCell(publicRaw,[]);
     let hiddenTestCases=parseJsonCell(hiddenRaw,[]);
-    const expectedOutput=String(get("expectedoutput","expectedrows","answer"));
+    const expectedOutput=String(get("expectedoutput","expectedrows"));
+    const solution=String(get("referencesolution","solution","referenceanswer","answer")||"").trim();
     if(!visibleTestCases.length && expectedOutput.trim()) {
       let expected;try{expected=JSON.parse(expectedOutput);}catch{throw new Error(`SQL query "${title}" ExpectedOutput must be valid JSON.`);}
       if(!Array.isArray(expected)) throw new Error(`SQL query "${title}" ExpectedOutput must be a JSON array of rows.`);
@@ -2760,7 +2760,7 @@ document.getElementById("confirmQuestionImportBtn")?.addEventListener("click",as
           await createConcept({levelId:activeLevel.id,title:q.title,content:q.content,subject:activeLevel.subject||q.subject||"Python",visualizationBlocks:q.visualizationBlocks||[],order:Number.isFinite(q.order)?q.order:((levelConcepts?.length||0)+imported)});
         }
         else if(importTarget==="learning-mcq") await createMcqQuestion({levelId:activeLevel.id,questionText:q.questionText,options:q.options,correctOptionIndex:q.correctOptionIndex,marks:q.marks,order:(levelMcqQuestions?.length||0)+imported});
-        else if(importTarget==="learning-coding") await createLearningCodingQuestion({levelId:activeLevel.id,subject:activeLevel.subject||"Python",language:q.language||"python",title:q.title,description:q.description,inputDescription:q.inputDescription,outputDescription:q.outputDescription,constraints:q.constraints||"",schemaSql:q.schemaSql||"",expectedOutput:q.expectedOutput||"",marks:q.marks,timeLimit:q.timeLimit||5,order:(levelCodingQuestions?.length||0)+imported,starterCode:q.starterCode,starterQuery:q.starterQuery||"",examples:q.examples||[],visibleTestCases:q.visibleTestCases||[],hiddenTestCases:q.hiddenTestCases||[]});
+        else if(importTarget==="learning-coding") await createLearningCodingQuestion({levelId:activeLevel.id,subject:activeLevel.subject||"Python",language:q.language||"python",title:q.title,description:q.description,inputDescription:q.inputDescription,outputDescription:q.outputDescription,constraints:q.constraints||"",schemaSql:q.schemaSql||"",solution:q.solution||"",expectedOutput:q.expectedOutput||"",marks:q.marks,timeLimit:q.timeLimit||5,order:(levelCodingQuestions?.length||0)+imported,starterCode:q.starterCode,starterQuery:q.starterQuery||"",examples:q.examples||[],visibleTestCases:q.visibleTestCases||[],hiddenTestCases:q.hiddenTestCases||[]});
         imported++;
       } catch(err){errors.push(`Question ${i+1}: ${err.message||"save failed"}`);}
     }
