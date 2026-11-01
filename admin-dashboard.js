@@ -124,6 +124,7 @@ let codeforcesSelected = new Set();
 let editingLearningCodingId = null;
 let specialQuestions = [];
 let specialQuestionsLoaded = false;
+const selectedSpecialQuestionIds = new Set();
 let editingSpecialQuestionId = null;
 let specialCompanyFilterValue = "all";
 let specialSubjectFilterValue = "all";
@@ -1380,7 +1381,8 @@ function renderQuestionsList() {
               <strong>${q.questionText}</strong>
               <div class="text-muted small mt-1">${q.marks} marks &middot; ${q.options.length} options</div>
             </div>
-            <div class="text-nowrap">
+            <div class="text-nowrap d-flex align-items-center gap-2">
+              <input class="form-check-input m-0" type="checkbox" aria-label="Select ${escapeHtmlL(q.title)}" data-select-special="${q.id}" ${selectedSpecialQuestionIds.has(q.id) ? "checked" : ""}>
               ${publishedBadge}
               <button class="btn btn-sm btn-outline-primary ms-2 me-1" data-edit-q="${q.id}"><i class="bi bi-pencil"></i></button>
               <button class="btn btn-sm btn-outline-danger" data-delete-q="${q.id}"><i class="bi bi-trash"></i></button>
@@ -1402,7 +1404,8 @@ function renderQuestionsList() {
                 ${(q.visibleTestCases || []).length} public / ${(q.hiddenTestCases || []).length} hidden test cases
               </div>
             </div>
-            <div class="text-nowrap">
+            <div class="text-nowrap d-flex align-items-center gap-2">
+              <input class="form-check-input m-0" type="checkbox" aria-label="Select ${escapeHtmlL(q.title)}" data-select-special="${q.id}" ${selectedSpecialQuestionIds.has(q.id) ? "checked" : ""}>
               ${publishedBadge}
               <button class="btn btn-sm btn-outline-primary ms-2 me-1" data-edit-q="${q.id}"><i class="bi bi-pencil"></i></button>
               <button class="btn btn-sm btn-outline-danger" data-delete-q="${q.id}"><i class="bi bi-trash"></i></button>
@@ -2817,12 +2820,21 @@ function renderSpecialQuestionsListBody() {
   const subjectRows = specialSubjectFilterValue === "all" ? specialQuestions : specialQuestions.filter((q) => (q.subject || q.language || "Python").toLowerCase() === specialSubjectFilterValue.toLowerCase());
   const rows = specialCompanyFilterValue === "all" ? subjectRows : subjectRows.filter((q) => q.company === specialCompanyFilterValue);
 
+  const selectedVisibleCount = rows.filter(q => selectedSpecialQuestionIds.has(q.id)).length;
+  const toolbar = `
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2 p-2 rounded border">
+      <label class="form-check mb-0 me-2"><input class="form-check-input" type="checkbox" id="selectAllVisibleSpecial" ${rows.length && selectedVisibleCount === rows.length ? "checked" : ""}><span class="form-check-label">Select all visible (${rows.length})</span></label>
+      <span class="small text-muted" id="specialSelectedCount">${selectedSpecialQuestionIds.size} selected</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSpecialSelection" ${selectedSpecialQuestionIds.size ? "" : "disabled"}>Clear selection</button>
+      <button type="button" class="btn btn-sm btn-danger" id="bulkDeleteSpecial" ${selectedSpecialQuestionIds.size ? "" : "disabled"}><i class="bi bi-trash me-1"></i>Delete selected</button>
+    </div>`;
   if (!rows.length) {
-    wrap.innerHTML = `<div class="text-center text-muted py-4">No special coding questions ${specialCompanyFilterValue === "all" ? "added yet" : `for ${escapeHtmlL(specialCompanyFilterValue)}`}.</div>`;
+    wrap.innerHTML = toolbar + `<div class="text-center text-muted py-4">No special coding questions ${specialCompanyFilterValue === "all" ? "added yet" : `for ${escapeHtmlL(specialCompanyFilterValue)}`}.</div>`;
+    wireSpecialBulkControls(rows);
     return;
   }
 
-  wrap.innerHTML = rows
+  wrap.innerHTML = toolbar + rows
     .map((q) => {
       const publishedBadge = q.published
         ? '<span class="badge bg-success">Published</span>'
@@ -2842,7 +2854,8 @@ function renderSpecialQuestionsListBody() {
                 ${q.external ? `${q.topic ? `Topic: ${escapeHtmlL(q.topic)} &middot; ` : ""}${q.rating ? `Rating ${escapeHtmlL(q.rating)} &middot; ` : ""}${escapeHtmlL(q.source || "External practice")}` : `${q.marks} marks &middot; ${(q.visibleTestCases || []).length} public / ${(q.hiddenTestCases || []).length} hidden test cases`}
               </div>
             </div>
-            <div class="text-nowrap">
+            <div class="text-nowrap d-flex align-items-center gap-2">
+              <input class="form-check-input m-0" type="checkbox" aria-label="Select ${escapeHtmlL(q.title)}" data-select-special="${q.id}" ${selectedSpecialQuestionIds.has(q.id) ? "checked" : ""}>
               ${publishedBadge}
               <button class="btn btn-sm btn-outline-primary ms-2 me-1" data-edit-special="${q.id}"><i class="bi bi-pencil"></i></button>
               <button class="btn btn-sm btn-outline-danger" data-delete-special="${q.id}"><i class="bi bi-trash"></i></button>
@@ -2852,6 +2865,7 @@ function renderSpecialQuestionsListBody() {
     })
     .join("");
 
+  wireSpecialBulkControls(rows);
   wrap.querySelectorAll("[data-edit-special]").forEach((btn) =>
     btn.addEventListener("click", () => openSpecialModal(specialQuestions.find((q) => q.id === btn.dataset.editSpecial)))
   );
@@ -2862,6 +2876,41 @@ function renderSpecialQuestionsListBody() {
       await renderSpecialQuestionsList();
     })
   );
+}
+
+function wireSpecialBulkControls(visibleRows) {
+  const wrap = document.getElementById("specialQuestionsList");
+  wrap.querySelectorAll("[data-select-special]").forEach((checkbox) => checkbox.addEventListener("change", () => {
+    if (checkbox.checked) selectedSpecialQuestionIds.add(checkbox.dataset.selectSpecial);
+    else selectedSpecialQuestionIds.delete(checkbox.dataset.selectSpecial);
+    renderSpecialQuestionsListBody();
+  }));
+  const selectAll = document.getElementById("selectAllVisibleSpecial");
+  selectAll?.addEventListener("change", () => {
+    visibleRows.forEach(q => selectAll.checked ? selectedSpecialQuestionIds.add(q.id) : selectedSpecialQuestionIds.delete(q.id));
+    renderSpecialQuestionsListBody();
+  });
+  document.getElementById("clearSpecialSelection")?.addEventListener("click", () => {
+    selectedSpecialQuestionIds.clear();
+    renderSpecialQuestionsListBody();
+  });
+  document.getElementById("bulkDeleteSpecial")?.addEventListener("click", async () => {
+    const ids = [...selectedSpecialQuestionIds];
+    if (!ids.length) return;
+    if (!confirm(`Permanently delete ${ids.length} selected question${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    const button = document.getElementById("bulkDeleteSpecial");
+    button.disabled = true;
+    try {
+      for (const id of ids) await deleteSpecialQuestion(id);
+      ids.forEach(id => selectedSpecialQuestionIds.delete(id));
+      await renderSpecialQuestionsList();
+      alert(`Deleted ${ids.length} question${ids.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      console.error("Bulk delete special questions failed:", error);
+      await renderSpecialQuestionsList();
+      alert("Some questions could not be deleted. Please refresh the list and try again.");
+    }
+  });
 }
 
 function companyBadgeClass(company) {
