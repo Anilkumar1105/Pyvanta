@@ -310,6 +310,18 @@ href="./favicon.svg">
   import { getAchievementSettings, renderAchievementPanel } from "./achievements.js";
 
   wireLogoutButtons();
+
+  // Preserve the dashboard's position when a student opens a learning module
+  // and returns with the learning page's Back to Dashboard link.
+  const DASHBOARD_SCROLL_KEY = "pyvanta:student-dashboard:scrollY";
+  document.addEventListener("click", (event) => {
+    const learningLink = event.target.closest('a[href*="learning.html"]');
+    if (!learningLink) return;
+    try {
+      sessionStorage.setItem(DASHBOARD_SCROLL_KEY, String(window.scrollY || 0));
+    } catch (_) {}
+  });
+
   // Keep cached exam schedules synchronized when an admin changes them.
   watchExamScheduleChanges();
 
@@ -365,6 +377,18 @@ href="./favicon.svg">
     // Coding submissions are now reviewed inside each exam's unified result details.
     renderLearningLevels(learningProgress);
     renderBestLearnerStudent();
+
+    // Restore only after the dashboard's main content has been rendered,
+    // avoiding the page jumping back to the top while modules are loading.
+    try {
+      const savedY = sessionStorage.getItem(DASHBOARD_SCROLL_KEY);
+      if (savedY !== null) {
+        sessionStorage.removeItem(DASHBOARD_SCROLL_KEY);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          window.scrollTo({ top: Math.max(0, Number(savedY) || 0), behavior: "instant" });
+        }));
+      }
+    } catch (_) {}
     renderAllTimePythonTopperStudent();
     renderToppersCarousel();
     renderWeeklyCodingToppers();
