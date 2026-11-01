@@ -34,9 +34,36 @@ href="./favicon.svg">
 </head>
 <body class="learning-body">
 
+<script>
+// Prefer browser history when this learning page was opened from the dashboard.
+// This allows the browser to restore the existing dashboard page (including its
+// in-memory UI and scroll position) instead of navigating to a fresh dashboard URL.
+(function () {
+  const backUrl = new URL("student-dashboard.html", window.location.href);
+  const cameFromDashboard = (() => {
+    try {
+      const referrer = new URL(document.referrer);
+      return referrer.origin === window.location.origin &&
+        /\/student-dashboard\.html$/.test(referrer.pathname);
+    } catch (_) {
+      return false;
+    }
+  })();
+  window.addEventListener("DOMContentLoaded", () => {
+    const backLink = document.getElementById("backToDashboard");
+    if (!backLink) return;
+    backLink.addEventListener("click", (event) => {
+      if (!cameFromDashboard || window.history.length < 2) return;
+      event.preventDefault();
+      window.history.back();
+    });
+  });
+})();
+</script>
+
 <nav class="navbar navbar-dark bg-brand mb-4">
   <div class="container-fluid">
-    <a href="student-dashboard.html" class="navbar-brand"><i class="bi bi-arrow-left me-2"></i>Back to Dashboard</a>
+    <a href="student-dashboard.html" id="backToDashboard" class="navbar-brand"><i class="bi bi-arrow-left me-2"></i>Back to Dashboard</a>
     <button class="btn btn-outline-light btn-sm" data-logout="true"><i class="bi bi-box-arrow-right me-1"></i>Logout</button>
   </div>
 </nav>
