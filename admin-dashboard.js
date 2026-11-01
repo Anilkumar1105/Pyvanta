@@ -2641,9 +2641,17 @@ function rowToImportQuestion(row) {
     const title=cleanCell(get("title","questiontitle"));
     const description=cleanCell(get("description","problemstatement","questiontext"));
     if(!title||!description) throw new Error("Coding question needs Title and Description.");
-    const examples=parseJsonCell(get("examplesjson","examples"),[]);
-    const visibleTestCases=parseJsonCell(get("publictestsjson","publictestcases","visibleTestCases"),[]).map(t=>({input:String(t.input??""),expectedOutput:String(t.expectedOutput??t.output??"")}));
-    const hiddenTestCases=parseJsonCell(get("hiddentestsjson","hiddentestcases","hiddenTestCases"),[]).map(t=>({input:String(t.input??""),expectedOutput:String(t.expectedOutput??t.output??"")}));
+    // Firestore rejects arrays nested inside arrays. Keep test payloads as JSON strings
+    // when Excel supplies structured input/output (for example [["enqueue", 1]]).
+    const toTestText = value => value == null ? "" : (typeof value === "string" ? value : JSON.stringify(value));
+    const examples=parseJsonCell(get("examplesjson","examples"),[]).map(t=>({
+      input:toTestText(t.input), output:toTestText(t.output??t.expectedOutput)
+    }));
+    const normalizeCodingTests = tests => tests.map(t=>({
+      input:toTestText(t.input), expectedOutput:toTestText(t.expectedOutput??t.output)
+    }));
+    const visibleTestCases=normalizeCodingTests(parseJsonCell(get("publictestsjson","publictestcases","visibleTestCases"),[]));
+    const hiddenTestCases=normalizeCodingTests(parseJsonCell(get("hiddentestsjson","hiddentestcases","hiddenTestCases"),[]));
     if(!visibleTestCases.length&&!hiddenTestCases.length) throw new Error(`Coding question "${title}" needs at least one PublicTestsJSON or HiddenTestsJSON case.`);
     const starterCode=cleanCell(get("startercode"))||"# Write your code here";
     return {type:"coding",title,description,inputDescription:cleanCell(get("inputdescription","input")),outputDescription:cleanCell(get("outputdescription","output")),constraints:cleanCell(get("constraints")),difficulty:cleanCell(get("difficulty")).toLowerCase()||"medium",marks,timeLimit:Number(get("timelimit")||5),memoryLimit:Number(get("memorylimit")||256),starterCode,examples,visibleTestCases,hiddenTestCases,language:"python",allowedLanguages:["python"],published: get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
