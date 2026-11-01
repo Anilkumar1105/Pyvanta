@@ -117,15 +117,20 @@ async function renderContent(points) {
         <div class="special-question-grid">
           ${group.questions
             .map(
-              (q) => `
+              (q) => {
+                const completionSection = (q.subject || q.language || "Python").toLowerCase() === "sql" ? "special-sql" : "special";
+                const completed = isCodingQuestionCompleted(completionSection, q.id);
+                return `
             <div class="special-question-card" data-open-question="${q.id}">
               <div class="d-flex justify-content-between align-items-start mb-2">
                 <span class="badge ${difficultyBadgeClass(q.difficulty)}">${(q.difficulty || "medium").toUpperCase()}</span>
                 <span class="special-question-marks">${q.marks} pts</span>
               </div>
               <div class="special-question-title">${escapeHtml(q.title)}</div>
+              ${completed ? '<div class="small text-success fw-semibold mt-2"><i class="bi bi-check-circle-fill me-1"></i>Completed</div>' : ''}
               <div class="special-question-cta">${q.external ? 'Open Problem <i class="bi bi-box-arrow-up-right ms-1"></i>' : 'Practice <i class="bi bi-arrow-right ms-1"></i>'}</div>
-            </div>`
+            </div>`;
+              }
             )
             .join("")}
         </div>
@@ -234,7 +239,7 @@ function renderQuestionDetail(q, points) {
           ${q.inputDescription ? `<p class="small text-white-75 preserve-lines"><strong>Input:</strong> ${escapeHtml(q.inputDescription)}</p>` : ""}
           ${q.outputDescription ? `<p class="small text-white-75 preserve-lines"><strong>Output:</strong> ${escapeHtml(q.outputDescription)}</p>` : ""}
           ${q.constraints ? `<p class="small text-white-50 preserve-lines"><strong>Constraints:</strong> ${escapeHtml(q.constraints)}</p>` : ""}
-          ${(q.subject || q.language || "Python").toLowerCase()==="sql" ? `<div class="small text-info mb-2">SQLite schema is loaded automatically for this challenge.</div>${q.referenceTables ? `<div class="sql-reference-panel mt-3"><h6 class="text-white">Reference tables</h6><p class="small text-white-75 preserve-lines">${escapeHtml(q.referenceTables)}</p></div>` : ""}${q.expectedColumns ? `<p class="small text-white-75 preserve-lines"><strong>Expected columns (in order):</strong> ${escapeHtml(q.expectedColumns)}</p>` : ""}` : ""}
+          ${(q.subject || q.language || "Python").toLowerCase()==="sql" ? `<div class="small text-info mb-2">SQLite schema is loaded automatically for this challenge.</div>` : ""}
           ${samplesHtml}
           <div id="specialSubmissionHistory" class="mt-3"></div>
         </div>

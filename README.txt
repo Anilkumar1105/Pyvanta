@@ -1,12 +1,7 @@
-Pyvanta SQL Excel Reference Solution Import Fix
+Pyvanta Special Section completion status update
 
-Replace admin-dashboard.js and admin-dashboard.html in your project with these files.
+Replace the existing special-section-page.js with the included file.
+This update displays a green Completed marker on a student's Special Section question card after all test cases pass.
+Completion uses the existing per-student browser localStorage tracking in this project; it is not cross-device synced.
 
-Fixes:
-- Reads ReferenceSolution (also Solution/ReferenceAnswer/Answer aliases) from SQL_QUERY Excel rows.
-- Saves the imported solution into learningCodingQuestions with the question.
-- Adds the Reference Solution field to the SQL admin edit form and loads/saves it when editing.
-- The existing SQL_QUESTIONS + SQL_TEST_CASES workbook layout remains supported.
-
-Then deploy. Import your SQL workbook into the SQL learning level using Learning > Coding Practice > Import Excel.
-The student View Solution reads the saved question.solution field.
+Deploy the updated file with the rest of your existing project. Verify with a test student by passing a question and returning to the question list.
