@@ -234,7 +234,7 @@ function renderQuestionDetail(q, points) {
           ${q.inputDescription ? `<p class="small text-white-75 preserve-lines"><strong>Input:</strong> ${escapeHtml(q.inputDescription)}</p>` : ""}
           ${q.outputDescription ? `<p class="small text-white-75 preserve-lines"><strong>Output:</strong> ${escapeHtml(q.outputDescription)}</p>` : ""}
           ${q.constraints ? `<p class="small text-white-50 preserve-lines"><strong>Constraints:</strong> ${escapeHtml(q.constraints)}</p>` : ""}
-          ${(q.subject || q.language || "Python").toLowerCase()==="sql" ? `<div class="small text-info mb-2">SQLite schema is loaded automatically for this challenge.</div>` : ""}
+          ${(q.subject || q.language || "Python").toLowerCase()==="sql" ? `<div class="small text-info mb-2">SQLite schema is loaded automatically for this challenge.</div>${q.referenceTables ? `<div class="sql-reference-panel mt-3"><h6 class="text-white">Reference tables</h6><p class="small text-white-75 preserve-lines">${escapeHtml(q.referenceTables)}</p></div>` : ""}${q.expectedColumns ? `<p class="small text-white-75 preserve-lines"><strong>Expected columns (in order):</strong> ${escapeHtml(q.expectedColumns)}</p>` : ""}` : ""}
           ${samplesHtml}
           <div id="specialSubmissionHistory" class="mt-3"></div>
         </div>

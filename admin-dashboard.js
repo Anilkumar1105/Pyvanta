@@ -2515,8 +2515,8 @@ document.getElementById("downloadCodingTemplateBtn")?.addEventListener("click",(
 document.getElementById("downloadSpecialCodingTemplateBtn")?.addEventListener("click",()=>downloadQuestionTemplate("coding",true));
 document.getElementById("downloadSpecialSqlTemplateBtn")?.addEventListener("click", () => {
   if (!window.XLSX) { alert("Excel library did not load. Refresh the page and try again."); return; }
-  const headers=["Type","Title","Description","SchemaSQL","StarterQuery","ExpectedOutput","Difficulty","Marks","Company","Published"];
-  const sample=["SQL_QUERY","Top Scoring Students","Return students with marks above 80, sorted by marks descending.","CREATE TABLE students(id INTEGER PRIMARY KEY, name TEXT, marks INTEGER); INSERT INTO students VALUES (1,'Anil',85),(2,'Ravi',65),(3,'Priya',92);","SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;",'[{"name":"Anil","marks":85},{"name":"Priya","marks":92}]',"easy",10,"TCS",true];
+  const headers=["Type","Title","Description","ReferenceTables","SchemaSQL","StarterQuery","ExpectedColumns","ExpectedOutput","PublicTestsJSON","HiddenTestsJSON","Difficulty","Marks","Company","Published"];
+  const sample=["SQL_QUERY","Top Scoring Students","TCS recruitment needs a report of students scoring above 80 in a placement assessment. Return each qualifying student's name and marks, ordered from highest to lowest. Include only students with marks strictly greater than 80.","students(id INTEGER PRIMARY KEY, name TEXT, marks INTEGER) — id uniquely identifies each student; name is the student's full name; marks is the assessment score.","CREATE TABLE students(id INTEGER PRIMARY KEY, name TEXT, marks INTEGER); INSERT INTO students VALUES (1,'Anil',85),(2,'Ravi',65),(3,'Priya',92),(4,'Kiran',80);","-- Write your SQL query here","name, marks",'[ {"name":"Priya","marks":92},{"name":"Anil","marks":85} ]',JSON.stringify([{input:"",expectedOutput:[{name:"Priya",marks:92},{name:"Anil",marks:85}]}]),JSON.stringify([{input:"",setupSql:"DELETE FROM students; INSERT INTO students VALUES (10,'Asha',80),(11,'Bala',100),(12,'Charan',100),(13,'Devi',79);",expectedOutput:[{name:"Bala",marks:100},{name:"Charan",marks:100}]}},{input:"",setupSql:"DELETE FROM students; INSERT INTO students VALUES (20,'Noor',50),(21,'Isha',80);",expectedOutput:[]}]),"easy",10,"TCS",true];
   const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet([headers,sample]);
   ws["!cols"]=headers.map(x=>({wch:Math.max(16,Math.min(42,x.length+5))}));
   XLSX.utils.book_append_sheet(wb,ws,"SQL Special Queries");
@@ -2615,6 +2615,8 @@ function rowToImportQuestion(row) {
     const title=cleanCell(get("title","questiontitle"));
     const description=cleanCell(get("description","problemstatement","questiontext"));
     const schemaSql=String(get("schemasql","setupsql","database"));
+    const referenceTables=String(get("referencetables","tabledetails","tablesdescription")||"").trim();
+    const expectedColumns=String(get("expectedcolumns","outputcolumns","resultcolumns")||"").trim();
     const starterCode=String(get("starterquery","startercode","query")||"-- Write your SQL query here");
     const difficulty=cleanCell(get("difficulty")).toLowerCase()||"medium";
     const publicRaw=get("publictestsjson","publictestcases");
@@ -2635,7 +2637,7 @@ function rowToImportQuestion(row) {
       try { const parsed=JSON.parse(test.expectedOutput); if(!Array.isArray(parsed)) throw new Error(); }
       catch { throw new Error(`SQL query "${title}" test case ${idx+1}: ExpectedOutputJSON must be a JSON array of rows.`); }
     }
-    return {type:"sql_query",subject:"SQL",language:"sql",title,description,inputDescription:cleanCell(get("inputdescription","input")),outputDescription:cleanCell(get("outputdescription","output")),schemaSql,starterCode,starterQuery:starterCode,solution,expectedOutput:visibleTestCases[0]?.expectedOutput||hiddenTestCases[0]?.expectedOutput||"[]",visibleTestCases,hiddenTestCases,difficulty,marks,timeLimit:Number(get("timelimit")||5),order:Number(get("order")||0),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
+    return {type:"sql_query",subject:"SQL",language:"sql",title,description,inputDescription:cleanCell(get("inputdescription","input")),outputDescription:cleanCell(get("outputdescription","output")),schemaSql,referenceTables,expectedColumns,starterCode,starterQuery:starterCode,solution,expectedOutput:visibleTestCases[0]?.expectedOutput||hiddenTestCases[0]?.expectedOutput||"[]",visibleTestCases,hiddenTestCases,difficulty,marks,timeLimit:Number(get("timelimit")||5),order:Number(get("order")||0),published:get("published")===""?true:!(/^(false|0|no)$/i.test(cleanCell(get("published")))),company:cleanCell(get("company"))||"Other"};
   }
   if(type==="coding"||type==="code") {
     const title=cleanCell(get("title","questiontitle"));
