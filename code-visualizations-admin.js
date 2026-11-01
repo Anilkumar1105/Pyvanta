@@ -28,6 +28,22 @@ function downloadTemplate(subject = "Python") {
   const wb=XLSX.utils.book_new(); const ws=XLSX.utils.aoa_to_sheet([headers,sample]);
   ws["!cols"]=[{wch:14},{wch:24},{wch:22},{wch:16},{wch:50},{wch:60},{wch:20},{wch:18},{wch:20},{wch:70},{wch:42},{wch:12}];
   XLSX.utils.book_append_sheet(wb,ws,"Visualization Programs");
+  const readme=[
+    ["PYVANTA VISUALIZATION IMPORT — README"],
+    ["Purpose","Import one row per learning program. Pyvanta generates the visualization from the imported program data and steps."],
+    ["Required fields","title"],
+    ["Recommended fields","subject, topic, difficulty, description, code, type, exampleInput, expectedOutput, visualizationSteps, published"],
+    ["Python steps","visualizationSteps must be a JSON array. Each step can include note, variables, output, and visualization."],
+    ["Python diagram example",'{"note":"Initialize fact","variables":{"n":5,"fact":1},"visualization":{"kind":"counter","current":1,"totalIterations":5}}'],
+    ["SQL table animation","For SQL, use visualization.kind = table (or sql-table), columns = column names, rows = arrays of row values, tableName = table name, and optional highlightRows = zero-based row indexes."],
+    ["SQL table example",'{"note":"Read students","visualization":{"kind":"table","tableName":"students","columns":["id","name","marks"],"rows":[[1,"Anu",85],[2,"Ravi",72],[3,"Sara",91]],"highlightRows":[2]}}'],
+    ["Multiple steps","Add one JSON object per step inside the same array. The viewer animates each frame with Previous, Next, Play, Reset and speed controls."],
+    ["Important","This is an educational trace, not arbitrary code execution. For precise SQL operations, provide the table state for each step. Keep valid JSON and use double quotes."],
+    ["Publishing","published TRUE makes the imported program visible to students; FALSE keeps it as a draft."],
+    ["Compatibility","Keep the column headers in the Visualization Programs sheet. Existing question imports and student progress are not changed."]
+  ];
+  const readmeWs=XLSX.utils.aoa_to_sheet(readme);readmeWs["!cols"]=[{wch:28},{wch:110}];
+  XLSX.utils.book_append_sheet(wb,readmeWs,"README");
   XLSX.writeFile(wb,`pyvanta-${subject.toLowerCase()}-visualization-template.xlsx`);
 }
 async function downloadPrograms() {
