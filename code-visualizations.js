@@ -203,6 +203,11 @@ export function renderCodeVisualizations(root) {
     else if(viz.kind==="division") visual=`<div class="cv-generic-metric"><strong>${esc(viz.a)} ÷ ${esc(viz.b)}</strong><span>Remainder: ${esc(viz.remainder)}</span></div>`;
     else if(viz.kind==="math") visual=`<div class="cv-generic-metric"><small>Running calculation</small><strong>${esc(viz.expression)}</strong><span>Result so far: ${esc(viz.value)}</span></div>`;
     else if(viz.kind==="character"||viz.kind==="word") visual=`<div class="cv-generic-metric"><small>${viz.kind==="word"?"Current word":"Current character"}</small><strong>${esc(viz.value)}</strong></div>`;
+    else if(viz.kind==="result" && Array.isArray(viz.columns) && Array.isArray(viz.rows)){
+      const columns=viz.columns.map(c=>typeof c==="string"?c:String(c.name||c.column||""));
+      const rows=viz.rows;
+      visual=`<div class="cv-sql-table-wrap cv-sql-result-wrap"><div class="cv-sql-table-title"><span>▦ Query result</span><span>${rows.length} row(s) · ${columns.length} column(s)</span></div><table class="cv-sql-table"><thead><tr>${columns.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>`<tr>${columns.map((c,ci)=>`<td>${esc(Array.isArray(row)?row[ci]??"NULL":row?.[c]??"NULL")}</td>`).join("")}</tr>`).join("")||`<tr><td colspan="${Math.max(1,columns.length)}" class="cv-sql-empty">No rows returned</td></tr>`}</tbody></table></div>`;
+    }
     else if(viz.kind==="result") visual=`<div class="cv-generic-metric cv-result"><small>Final result</small><strong>${esc(typeof viz.value==="object"?JSON.stringify(viz.value):viz.value)}</strong></div>`;
     else visual=`<div class="cv-variable-grid">${Object.entries(vars).map(([k,v])=>`<div class="cv-variable"><small>${esc(k)}</small><strong>${esc(typeof v==="object"?JSON.stringify(v):v)}</strong></div>`).join("")||'<div class="cv-variable"><small>State</small><strong>Initialized</strong></div>'}</div>`;
     const varsMarkup=`<div class="cv-variable-grid">${Object.entries(vars).map(([k,v])=>`<div class="cv-variable"><small>${esc(k)}</small><strong>${esc(typeof v==="object"?JSON.stringify(v):v)}</strong></div>`).join("")}</div>`;
@@ -212,7 +217,11 @@ export function renderCodeVisualizations(root) {
     $("cvCanvas").innerHTML=`${visual}${varsMarkup && !hasInlineVariableGrid ? `<div class="cv-state-caption">Variable state</div>${varsMarkup}` : ""}`;
     $("cvCode").innerHTML=code.map((line,i)=>`<span class="cv-code-line ${i===highlight?'cv-code-current':''}">${esc(line)||" "}</span>`).join("\n")||"Code example not provided.";
     $("cvNote").textContent=frame.note||"Observe how the program state changes.";
-    if(frame.output && frame.output!=="Not produced yet")$("cvNote").textContent+=` Output: ${typeof frame.output==="object"?(frame.output.display||JSON.stringify(frame.output.value??frame.output)):frame.output}`;
+    if(frame.output && frame.output!=="Not produced yet"){
+      let outputText=typeof frame.output==="object"?(frame.output.display||JSON.stringify(frame.output.value??frame.output)):String(frame.output);
+      try{const parsed=typeof outputText==="string"?JSON.parse(outputText):null;if(parsed&&Array.isArray(parsed.columns)&&Array.isArray(parsed.rows))outputText="See the query result table above.";}catch{}
+      if(outputText)$("cvNote").textContent+=` Output: ${outputText}`;
+    }
   }
   function expectedOutput(p){
     if(String(p.expectedOutput??p.expectedoutput??p.sampleOutput??"").trim()) return String(p.expectedOutput??p.expectedoutput??p.sampleOutput).trim();
